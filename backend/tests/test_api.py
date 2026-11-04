@@ -261,3 +261,40 @@ def test_mathematical_formulas_and_telugu_explanation():
     # Must contain bilingual or Telugu summary
     assert data["telugu_summary"] is not None or any(d.telugu_translation for d in data.get("key_definitions", []))
 
+def test_auth_guest_and_otp_flow():
+    """Test guest login, OTP generation, verification, and token authentication."""
+    # 1. Guest login
+    guest_res = client.post("/api/auth/guest")
+    assert guest_res.status_code == 200
+    g_data = guest_res.json()
+    assert g_data["success"] is True
+    assert "token" in g_data
+    assert g_data["user"]["is_guest"] is True
+
+    # 2. Test /api/auth/me with guest token
+    token = g_data["token"]
+    me_res = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert me_res.status_code == 200
+    assert me_res.json()["is_guest"] is True
+
+    # 3. Simulate OTP verification for a student
+    test_email = "student_test@example.com"
+    store.save_otp(test_email, "987654")
+    verify_res = client.post(
+        "/api/auth/verify-otp",
+        json={"email": test_email, "otp": "987654", "name": "Test Student"}
+    )
+    assert verify_res.status_code == 200
+    v_data = verify_res.json()
+    assert v_data["success"] is True
+    assert v_data["user"]["email"] == test_email
+    assert v_data["user"]["is_guest"] is False
+
+    # 4. Verify invalid OTP fails
+    bad_res = client.post(
+        "/api/auth/verify-otp",
+        json={"email": test_email, "otp": "000000"}
+    )
+    assert bad_res.status_code == 400
+
+

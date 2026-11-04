@@ -31,9 +31,40 @@ class Settings:
             return "gemini-3.5-flash-lite"
         return model
 
-    # Supabase configuration (optional)
-    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "").strip()
-    SUPABASE_ANON_KEY: str = os.getenv("SUPABASE_ANON_KEY", "").strip()
+    # MongoDB Atlas configuration
+    @property
+    def MONGODB_URI(self) -> str:
+        return os.getenv("MONGODB_URI", "").strip()
+
+    @property
+    def MONGODB_DB_NAME(self) -> str:
+        return os.getenv("MONGODB_DB_NAME", "snap2learn").strip()
+
+    @property
+    def is_mongodb_configured(self) -> bool:
+        return bool(self.MONGODB_URI and "mongodb" in self.MONGODB_URI)
+
+    # Brevo configuration (Transactional Email & OTP Auth)
+    @property
+    def BREVO_API_KEY(self) -> str:
+        return os.getenv("BREVO_API_KEY", "").strip()
+
+    @property
+    def BREVO_SENDER_EMAIL(self) -> str:
+        return os.getenv("BREVO_SENDER_EMAIL", "chopperlapurnima@gmail.com").strip()
+
+    @property
+    def BREVO_SENDER_NAME(self) -> str:
+        return os.getenv("BREVO_SENDER_NAME", "Snap2Learn AI").strip()
+
+    @property
+    def is_brevo_configured(self) -> bool:
+        return bool(self.BREVO_API_KEY and len(self.BREVO_API_KEY) > 10)
+
+    # JWT Secret for Session Tokens
+    @property
+    def JWT_SECRET(self) -> str:
+        return os.getenv("JWT_SECRET", "snap2learn_jwt_secret_key_default_2026").strip()
 
     # Upload constraints
     MAX_UPLOAD_SIZE_MB: int = int(os.getenv("MAX_UPLOAD_SIZE_MB", "10"))

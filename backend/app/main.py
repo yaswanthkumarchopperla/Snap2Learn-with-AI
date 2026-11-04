@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.api import (
     health,
+    auth,
     scan,
     explain,
     chat,
@@ -39,6 +40,7 @@ app.add_middleware(
 
 # Include API Routers under /api
 app.include_router(health.router, prefix="/api")
+app.include_router(auth.router, prefix="/api")
 app.include_router(scan.router, prefix="/api")
 app.include_router(explain.router, prefix="/api")
 app.include_router(chat.router, prefix="/api")

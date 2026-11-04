@@ -168,4 +168,36 @@ export const api = {
     if (!res.ok) throw new Error('Failed to load progress analytics');
     return res.json();
   },
+
+  async sendOtp(email: string, name?: string): Promise<{ success: boolean; message: string; email: string }> {
+    const res = await fetch(`${API_BASE}/auth/send-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, name }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to send OTP' }));
+      throw new Error(err.detail || 'Failed to send OTP via Brevo');
+    }
+    return res.json();
+  },
+
+  async verifyOtp(email: string, otp: string, name?: string): Promise<{ success: boolean; token: string; user: any }> {
+    const res = await fetch(`${API_BASE}/auth/verify-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, otp, name }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Verification failed' }));
+      throw new Error(err.detail || 'Invalid or expired OTP code');
+    }
+    return res.json();
+  },
+
+  async guestLogin(): Promise<{ success: boolean; token: string; user: any }> {
+    const res = await fetch(`${API_BASE}/auth/guest`, { method: 'POST' });
+    if (!res.ok) throw new Error('Failed to start guest session');
+    return res.json();
+  },
 };

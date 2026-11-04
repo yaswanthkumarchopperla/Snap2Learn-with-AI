@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { api } from '../services/api';
 
 export interface UserProfile {
   id: string;
@@ -6,21 +7,26 @@ export interface UserProfile {
   displayName: string;
   collegeBranch: string;
   isGuest: boolean;
+  token?: string;
 }
 
 interface AuthContextType {
   user: UserProfile | null;
   isLoading: boolean;
-  loginAsGuest: () => void;
-  loginWithEmail: (email: string, password: string) => Promise<void>;
-  signupWithEmail: (email: string, password: string, name: string) => Promise<void>;
+  loginAsGuest: () => Promise<void>;
+  sendOtp: (email: string, name?: string) => Promise<string>;
+  verifyOtp: (email: string, otp: string, name?: string) => Promise<void>;
+  loginWithEmail: (email: string, password?: string) => Promise<void>;
+  signupWithEmail: (email: string, password?: string, name?: string) => Promise<void>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   isLoading: true,
-  loginAsGuest: () => {},
+  loginAsGuest: async () => {},
+  sendOtp: async () => '',
+  verifyOtp: async () => {},
   loginWithEmail: async () => {},
   signupWithEmail: async () => {},
   logout: () => {},
@@ -44,7 +50,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return DEMO_GUEST_USER;
       }
     }
-    // Default to Guest Demo mode so user can immediately use all features
     return DEMO_GUEST_USER;
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -54,56 +59,77 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('snap2learn_user', JSON.stringify(user));
     } else {
       localStorage.removeItem('snap2learn_user');
+      localStorage.removeItem('snap2learn_token');
     }
   }, [user]);
 
-  const loginAsGuest = () => {
-    setUser(DEMO_GUEST_USER);
-  };
-
-  const loginWithEmail = async (email: string, password: string) => {
+  const loginAsGuest = async () => {
     setIsLoading(true);
     try {
-      // Simulate/perform Supabase client or local session authentication
-      await new Promise((r) => setTimeout(r, 600));
-      if (!email.includes('@') || password.length < 6) {
-        throw new Error('Please enter a valid email and minimum 6-character password');
+      try {
+        const res = await api.guestLogin();
+        if (res.token) {
+          localStorage.setItem('snap2learn_token', res.token);
+        }
+        setUser({
+          id: res.user.id,
+          email: res.user.email,
+          displayName: res.user.name,
+          collegeBranch: res.user.college_branch || 'CSE (AI & ML)',
+          isGuest: true,
+          token: res.token,
+        });
+      } catch {
+        setUser(DEMO_GUEST_USER);
       }
-      const loggedIn: UserProfile = {
-        id: `usr-${btoa(email).slice(0, 8)}`,
-        email,
-        displayName: email.split('@')[0],
-        collegeBranch: 'CSE-AIML',
-        isGuest: false,
-      };
-      setUser(loggedIn);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const signupWithEmail = async (email: string, password: string, name: string) => {
+  const sendOtp = async (email: string, name?: string): Promise<string> => {
     setIsLoading(true);
     try {
-      await new Promise((r) => setTimeout(r, 700));
-      if (!email.includes('@') || password.length < 6) {
-        throw new Error('Please enter a valid email and minimum 6-character password');
-      }
-      const newUser: UserProfile = {
-        id: `usr-${btoa(email).slice(0, 8)}`,
-        email,
-        displayName: name || email.split('@')[0],
-        collegeBranch: 'CSE-AIML',
-        isGuest: false,
-      };
-      setUser(newUser);
+      const res = await api.sendOtp(email, name);
+      return res.message;
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const verifyOtp = async (email: string, otp: string, name?: string): Promise<void> => {
+    setIsLoading(true);
+    try {
+      const res = await api.verifyOtp(email, otp, name);
+      if (res.token) {
+        localStorage.setItem('snap2learn_token', res.token);
+      }
+      const verifiedUser: UserProfile = {
+        id: res.user.id,
+        email: res.user.email,
+        displayName: res.user.name,
+        collegeBranch: res.user.college_branch || 'CSE (AI & ML)',
+        isGuest: false,
+        token: res.token,
+      };
+      setUser(verifiedUser);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loginWithEmail = async (email: string) => {
+    await sendOtp(email);
+  };
+
+  const signupWithEmail = async (email: string, _password?: string, name?: string) => {
+    await sendOtp(email, name);
   };
 
   const logout = () => {
     setUser(null);
+    localStorage.removeItem('snap2learn_user');
+    localStorage.removeItem('snap2learn_token');
   };
 
   return (
@@ -112,6 +138,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         isLoading,
         loginAsGuest,
+        sendOtp,
+        verifyOtp,
         loginWithEmail,
         signupWithEmail,
         logout,

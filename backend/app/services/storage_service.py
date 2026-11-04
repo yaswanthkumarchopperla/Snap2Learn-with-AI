@@ -10,6 +10,7 @@ class InMemoryStore:
         self.quizzes: Dict[str, Dict[str, Any]] = {}
         self.attempts: List[Dict[str, Any]] = []
         self.flashcards: Dict[str, FlashcardItem] = {}
+        self.otps: Dict[str, str] = {}
         self._seed_initial_data()
 
     def _seed_initial_data(self):
@@ -235,4 +236,102 @@ class InMemoryStore:
             recommended_revision=recommended
         )
 
-store = InMemoryStore()
+
+from app.services.mongodb_service import mongodb_service
+
+
+class HybridStorageStore:
+    def __init__(self):
+        self.in_memory = InMemoryStore()
+
+    def get_notes(self, user_id: str = "guest_student") -> List[NoteItem]:
+        if mongodb_service.is_connected:
+            return mongodb_service.get_notes(user_id)
+        return self.in_memory.get_notes(user_id)
+
+    def get_note(self, note_id: str) -> Optional[NoteItem]:
+        if mongodb_service.is_connected:
+            return mongodb_service.get_note(note_id)
+        return self.in_memory.get_note(note_id)
+
+    def save_note(self, title: str, subject: str, topic: str, raw_text: str, summary: Optional[str] = None, user_id: str = "guest_student") -> NoteItem:
+        if mongodb_service.is_connected:
+            return mongodb_service.save_note(title, subject, topic, raw_text, summary, user_id)
+        return self.in_memory.save_note(title, subject, topic, raw_text, summary)
+
+    def delete_note(self, note_id: str) -> bool:
+        if mongodb_service.is_connected:
+            return mongodb_service.delete_note(note_id)
+        return self.in_memory.delete_note(note_id)
+
+    # Quiz operations
+    def store_quiz(self, quiz_id: str, title: str, subject: str, topic: str, difficulty: str, questions: List[QuestionItem]):
+        self.in_memory.store_quiz(quiz_id, title, subject, topic, difficulty, questions)
+        if mongodb_service.is_connected:
+            mongodb_service.store_quiz(quiz_id, title, subject, topic, difficulty, questions)
+
+    def get_quiz(self, quiz_id: str) -> Optional[Dict[str, Any]]:
+        if mongodb_service.is_connected:
+            q = mongodb_service.get_quiz(quiz_id)
+            if q:
+                return q
+        return self.in_memory.get_quiz(quiz_id)
+
+    def record_attempt(self, attempt_data: Dict[str, Any]):
+        self.in_memory.record_attempt(attempt_data)
+        if mongodb_service.is_connected:
+            mongodb_service.record_attempt(attempt_data)
+
+    # Flashcard operations
+    def get_flashcards(self, subject: Optional[str] = None, user_id: str = "guest_student") -> List[FlashcardItem]:
+        if mongodb_service.is_connected:
+            return mongodb_service.get_flashcards(subject, user_id)
+        return self.in_memory.get_flashcards(subject)
+
+    def add_flashcard(self, subject: str, topic: str, front: str, back: str, formula_or_code: Optional[str] = None, difficulty: str = "medium", user_id: str = "guest_student") -> FlashcardItem:
+        if mongodb_service.is_connected:
+            return mongodb_service.add_flashcard(subject, topic, front, back, formula_or_code, difficulty, user_id)
+        return self.in_memory.add_flashcard(subject, topic, front, back, formula_or_code, difficulty)
+
+    def review_flashcard(self, card_id: str, rating: str) -> Optional[FlashcardItem]:
+        if mongodb_service.is_connected:
+            res = mongodb_service.review_flashcard(card_id, rating)
+            if res:
+                return res
+        return self.in_memory.review_flashcard(card_id, rating)
+
+    # Analytics
+    def get_analytics(self, user_id: str = "guest_student") -> ProgressAnalytics:
+        if mongodb_service.is_connected:
+            return mongodb_service.get_analytics(user_id)
+        return self.in_memory.get_analytics()
+
+    # User Auth & OTP
+    def save_otp(self, email: str, otp: str, expires_minutes: int = 10) -> bool:
+        self.in_memory.otps[email.lower().strip()] = otp
+        if mongodb_service.is_connected:
+            return mongodb_service.save_otp(email, otp, expires_minutes)
+        return True
+
+    def verify_otp(self, email: str, otp: str) -> bool:
+        if mongodb_service.is_connected:
+            return mongodb_service.verify_otp(email, otp)
+        expected = self.in_memory.otps.get(email.lower().strip())
+        if expected and expected == otp.strip():
+            self.in_memory.otps.pop(email.lower().strip(), None)
+            return True
+        return False
+
+    def get_or_create_user(self, email: str, name: Optional[str] = None) -> Dict[str, Any]:
+        if mongodb_service.is_connected:
+            return mongodb_service.get_or_create_user(email, name)
+        return {
+            "id": f"usr-{uuid.uuid4().hex[:8]}",
+            "email": email,
+            "name": name or email.split("@")[0].capitalize(),
+            "college_branch": "CSE (AI & ML)",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+
+
+store = HybridStorageStore()
