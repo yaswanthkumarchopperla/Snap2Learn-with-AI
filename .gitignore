@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+backend/venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Build Outputs
+frontend/dist/
+frontend/dist-ssr/
+*.tsbuildinfo
+
+# Environment and Secrets
+.env
+.env.local
+.env.*.local
+*.log
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Pytest & Coverage
+.pytest_cache/
+.coverage
+htmlcov/

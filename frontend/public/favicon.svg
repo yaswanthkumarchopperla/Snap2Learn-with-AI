@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <defs>
+    <linearGradient id="primaryGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7559FF" />
+      <stop offset="100%" stop-color="#22D3EE" />
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#A855F7" />
+      <stop offset="100%" stop-color="#7559FF" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="2" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background Base -->
+  <rect width="48" height="48" rx="12" fill="#0D1126" />
+  <rect width="48" height="48" rx="12" stroke="url(#primaryGrad)" stroke-width="1.5" stroke-opacity="0.4" />
+
+  <!-- Camera Scan Brackets -->
+  <path d="M 8 16 V 10 C 8 8.895 8.895 8 10 8 H 16" stroke="#22D3EE" stroke-width="2.5" stroke-linecap="round" />
+  <path d="M 32 8 H 38 C 39.105 8 40 8.895 40 10 V 16" stroke="#22D3EE" stroke-width="2.5" stroke-linecap="round" />
+  <path d="M 8 32 V 38 C 8 39.105 8.895 40 10 40 H 16" stroke="#22D3EE" stroke-width="2.5" stroke-linecap="round" />
+  <path d="M 32 40 H 38 C 39.105 40 40 39.105 40 38 V 32" stroke="#22D3EE" stroke-width="2.5" stroke-linecap="round" />
+
+  <!-- Open Book Base -->
+  <path d="M 14 32 C 18 30 22 31 24 33 C 26 31 30 30 34 32 V 19 C 30 17 26 18 24 20 C 22 18 18 17 14 19 Z" fill="url(#primaryGrad)" fill-opacity="0.25" stroke="url(#primaryGrad)" stroke-width="2" stroke-linejoin="round" />
+  <path d="M 24 20 V 33" stroke="#F8FAFC" stroke-width="2" stroke-linecap="round" />
+
+  <!-- AI Sparkle Core -->
+  <path d="M 24 10 L 25.5 14.5 L 30 16 L 25.5 17.5 L 24 22 L 22.5 17.5 L 18 16 L 22.5 14.5 Z" fill="#22D3EE" filter="url(#glow)" />
+  <circle cx="34" cy="12" r="1.5" fill="#A855F7" />
+</svg>
