@@ -26,10 +26,26 @@ class Settings:
     @property
     def GEMINI_MODEL(self) -> str:
         model = os.getenv("GEMINI_MODEL", "").strip()
-        # Automatically upgrade deprecated or quota-constrained models to working 3.5-flash-lite
-        if not model or model in ("gemini-2.5-flash", "models/gemini-2.5-flash"):
-            return "gemini-3.5-flash-lite"
+        # Automatically upgrade deprecated or quota-constrained models to stable working flash-lite
+        deprecated_models = (
+            "gemini-2.5-flash",
+            "models/gemini-2.5-flash",
+            "gemini-2.5-flash-lite",
+            "gemini-2.0-flash",
+            "gemini-1.5-flash",
+            "gemini-1.5-pro",
+        )
+        if not model or model in deprecated_models:
+            return "gemini-3.1-flash-lite"
         return model
+
+    # Fallback model candidate chain for handling 503 / 429 transient model spikes
+    GEMINI_FALLBACK_MODELS: list = [
+        "gemini-3.1-flash-lite",
+        "gemini-flash-lite-latest",
+        "gemini-3.5-flash",
+        "gemini-3.5-flash-lite",
+    ]
 
     # MongoDB Atlas configuration
     @property

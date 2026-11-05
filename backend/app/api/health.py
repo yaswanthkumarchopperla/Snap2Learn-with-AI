@@ -29,3 +29,10 @@ def health_check():
             "brevo_email_auth": True
         }
     }
+
+@router.get("/ping")
+def health_ping():
+    return {
+        "status": "ok",
+        "mongodb_connected": mongodb_service.is_connected
+    }

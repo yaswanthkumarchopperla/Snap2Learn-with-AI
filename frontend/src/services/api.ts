@@ -18,7 +18,7 @@ import {
   LearningStatus
 } from '../types';
 
-const API_BASE = '/api';
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/+$/, '');
 
 export function getAuthHeaders(extra: Record<string, string> = {}): Record<string, string> {
   const token = localStorage.getItem('snap2learn_token');
@@ -30,6 +30,21 @@ export function getAuthHeaders(extra: Record<string, string> = {}): Record<strin
 }
 
 export const api = {
+  async ping(): Promise<boolean> {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const res = await fetch(`${API_BASE}/ping`, {
+        signal: controller.signal,
+        cache: 'no-store'
+      });
+      clearTimeout(timeoutId);
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
   async health() {
     const res = await fetch(`${API_BASE}/health`);
     if (!res.ok) throw new Error('Backend health check failed');

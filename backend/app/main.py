@@ -61,6 +61,7 @@ def root():
     }
 
 @app.get("/ping", tags=["Health"])
+@app.get("/api/ping", tags=["Health"])
 def ping():
     return {"status": "ok", "message": "pong"}
 

@@ -3,6 +3,8 @@ import re
 import json
 import time
 import uuid
+import random
+import hashlib
 import logging
 from typing import Optional, List, Dict, Any, Set, Tuple
 from fastapi import HTTPException, status
@@ -176,13 +178,22 @@ class GeminiService:
         return self.get_client() is not None
 
     def _call_content_generation(self, contents: Any, config: Optional[types.GenerateContentConfig] = None):
-        """Calls Gemini with primary model, falling back to flash-lite variants if 503 or 429 quota occurs."""
+        """
+        Calls Gemini with automatic retry for transient errors (503, 429, 500, socket/network hiccups)
+        using exponential backoff and random jitter. Falls back safely across candidate models if
+        the primary model experiences prolonged spikes or unavailability.
+        """
         client = self.get_client()
         if not client:
-            raise RuntimeError("Gemini client is not initialized")
+            raise RuntimeError("Gemini client is not initialized. Please ensure GEMINI_API_KEY is configured.")
 
         primary_model = self.model
-        fallback_models = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.5-flash"]
+        fallback_models = getattr(settings, "GEMINI_FALLBACK_MODELS", [
+            "gemini-3.1-flash-lite",
+            "gemini-flash-lite-latest",
+            "gemini-3.5-flash",
+            "gemini-3.5-flash-lite",
+        ])
 
         models_to_try = [primary_model]
         for m in fallback_models:
@@ -190,9 +201,10 @@ class GeminiService:
                 models_to_try.append(m)
 
         last_error = None
-        for m in models_to_try:
-            # Allow up to 2 attempts per model for transient network/socket hiccups
-            for attempt in range(2):
+        max_attempts_per_model = 3
+
+        for model_idx, m in enumerate(models_to_try):
+            for attempt in range(max_attempts_per_model):
                 try:
                     return client.models.generate_content(
                         model=m,
@@ -200,22 +212,77 @@ class GeminiService:
                         config=config
                     )
                 except Exception as e:
-                    err_str = str(e)
+                    err_str = str(e).lower()
                     last_error = e
-                    # If model is deprecated (404), experiencing spikes (503), or quota reached (429/RESOURCE_EXHAUSTED)
-                    is_model_exhausted = any(k in err_str.lower() for k in [
-                        "404", "503", "429", "resource_exhausted", "quota", "overloaded", "not_found"
+
+                    # 1. Non-retryable fatal errors: fail immediately without wasting retries
+                    is_fatal_auth_or_request = any(k in err_str for k in [
+                        "api_key_invalid",
+                        "api key not valid",
+                        "permission_denied",
+                        "401",
+                        "403",
+                        "invalid_argument",
+                        "safety",
+                        "blocked"
                     ])
-                    if is_model_exhausted:
-                        logger.warning(f"Model {m} failed ({err_str[:70]}), attempting fallback model...")
-                        break  # Break inner retry loop to try next model
-                    elif "getaddrinfo" in err_str or "connection" in err_str.lower():
-                        logger.warning(f"Model {m} socket error on attempt {attempt+1}: {err_str[:60]}")
-                        time.sleep(0.5)
-                        continue
-                    else:
+                    if is_fatal_auth_or_request:
+                        logger.error(f"Non-retryable Gemini error encountered on {m}: {e}")
                         raise e
 
+                    # 2. Model not found / deprecated: skip immediately to next model in chain
+                    if "404" in err_str or "not_found" in err_str:
+                        logger.warning(f"Model {m} is not found or deprecated (404), switching to fallback model...")
+                        break
+
+                    # 3. Transient errors: 503 (high demand), 429 (quota), 500, 502, 504, socket errors
+                    is_transient = any(k in err_str for k in [
+                        "503",
+                        "unavailable",
+                        "high demand",
+                        "overloaded",
+                        "429",
+                        "resource_exhausted",
+                        "quota",
+                        "500",
+                        "502",
+                        "504",
+                        "getaddrinfo",
+                        "connection",
+                        "timeout",
+                        "reset by peer",
+                        "broken pipe"
+                    ])
+
+                    if is_transient:
+                        if attempt < max_attempts_per_model - 1:
+                            # Exponential backoff with jitter: 0.8s, 1.8s, 3.6s
+                            base_delay = 0.8 * (2 ** attempt)
+                            delay = base_delay + random.uniform(0.1, 0.4)
+                            logger.warning(
+                                f"Model {m} transient error ({str(e)[:60]}) on attempt {attempt + 1}/{max_attempts_per_model}. "
+                                f"Retrying with backoff in {delay:.2f}s..."
+                            )
+                            time.sleep(delay)
+                            continue
+                        else:
+                            next_model = models_to_try[model_idx + 1] if model_idx + 1 < len(models_to_try) else "None"
+                            logger.warning(
+                                f"Model {m} exhausted all {max_attempts_per_model} attempts ({str(e)[:60]}). "
+                                f"Switching to fallback model: {next_model}..."
+                            )
+                            break
+                    else:
+                        # Unknown error type, do not loop blindly
+                        raise e
+
+        # If all models and retries were exhausted
+        err_msg = str(last_error) if last_error else "Service unavailable"
+        if any(k in err_msg.lower() for k in ["503", "unavailable", "high demand", "overloaded"]):
+            raise RuntimeError(
+                "Gemini AI models are currently experiencing high demand (503). "
+                "Automatic retries across fallback models were attempted. Please wait a moment and try again."
+            )
         raise last_error
 
     def scan_image(self, image_bytes: bytes, mime_type: str, subject_hint: Optional[str] = None) -> ScanResponse:
@@ -265,9 +332,25 @@ Examine this image of a study note, textbook page, or handwritten sheet.
             if "PYTEST_CURRENT_TEST" in os.environ:
                 logger.warning("Pytest test mode detected; returning mock scan response due to upstream error.")
                 return self._fallback_demo_scan(subject_hint)
+            err_lower = str(e).lower()
+            if any(k in err_lower for k in ["503", "unavailable", "high demand", "overloaded"]):
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Gemini OCR service is currently experiencing high global demand (503). Automatic retries were attempted. Please try scanning your image again in a few moments."
+                )
+            elif any(k in err_lower for k in ["401", "403", "api_key", "permission"]):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Gemini API authentication failed. Please check your GEMINI_API_KEY."
+                )
+            elif any(k in err_lower for k in ["429", "quota", "resource_exhausted"]):
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="Gemini API rate limit reached (429). Please wait a few seconds before scanning again."
+                )
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"Gemini OCR extraction failed: {str(e)}. Please check your GEMINI_API_KEY and network connection."
+                detail=f"Gemini OCR extraction failed: {str(e)}. Please check your network connection and try again."
             )
 
     def explain_material(

@@ -15,6 +15,8 @@ class OfflineSyncManager {
   private queue: OfflineTask[] = [];
   private isProcessing = false;
   private listeners: ((count: number) => void)[] = [];
+  private drainedListeners: (() => void)[] = [];
+  private retryTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     this.loadQueue();
@@ -40,7 +42,7 @@ class OfflineSyncManager {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(this.queue));
     } catch {
-      // quota or local storage unavailable
+      // Quota exceeded or private storage restricted
     }
     this.notify();
   }
@@ -53,16 +55,30 @@ class OfflineSyncManager {
     };
   }
 
+  public onQueueDrained(listener: () => void) {
+    this.drainedListeners.push(listener);
+    return () => {
+      this.drainedListeners = this.drainedListeners.filter(l => l !== listener);
+    };
+  }
+
   private notify() {
     this.listeners.forEach(l => l(this.queue.length));
+    if (this.queue.length === 0) {
+      this.drainedListeners.forEach(l => l());
+    }
   }
 
   public get pendingCount(): number {
     return this.queue.length;
   }
 
+  public get isSyncing(): boolean {
+    return this.isProcessing;
+  }
+
   public enqueue(task: Omit<OfflineTask, 'id' | 'timestamp'>) {
-    // Deduplicate note/progress updates for same target ID
+    // Deduplicate updates for the same target entity ID
     const targetId = task.payload.id || task.payload.quiz_id || task.payload.note_id;
     if (targetId) {
       this.queue = this.queue.filter(t => {
@@ -79,18 +95,25 @@ class OfflineSyncManager {
     this.queue.push(newTask);
     this.saveQueue();
 
-    if (navigator.onLine) {
+    // Trigger immediate attempt if browser reports online
+    if (typeof navigator !== 'undefined' && navigator.onLine) {
       this.processQueue();
     }
   }
 
   public async processQueue() {
-    if (this.isProcessing || this.queue.length === 0 || !navigator.onLine) {
+    if (this.isProcessing || this.queue.length === 0) {
       return;
     }
+
+    if (this.retryTimeout) {
+      clearTimeout(this.retryTimeout);
+      this.retryTimeout = null;
+    }
+
     this.isProcessing = true;
 
-    while (this.queue.length > 0 && navigator.onLine) {
+    while (this.queue.length > 0) {
       const task = this.queue[0];
       try {
         if (task.type === 'note') {
@@ -112,12 +135,27 @@ class OfflineSyncManager {
         } else if (task.type === 'preferences') {
           await api.updatePreferences(task.payload);
         }
+
         // Task succeeded, remove from queue
         this.queue.shift();
         this.saveQueue();
-      } catch (err) {
-        // If permanent error or network cut off, break loop
+      } catch (err: any) {
         console.warn('Offline sync attempt paused:', err);
+        const errMsg = String(err?.message || err).toLowerCase();
+        const isPermanentClientError = errMsg.includes('400') || errMsg.includes('422') || errMsg.includes('required');
+
+        if (isPermanentClientError) {
+          // Discard invalid task to avoid wedging queue
+          console.error('Discarding malformed offline task:', task);
+          this.queue.shift();
+          this.saveQueue();
+          continue;
+        }
+
+        // Temporary network or server glitch: pause and schedule automatic retry in 6s
+        this.retryTimeout = setTimeout(() => {
+          this.processQueue();
+        }, 6000);
         break;
       }
     }
@@ -127,4 +165,3 @@ class OfflineSyncManager {
 }
 
 export const offlineSync = new OfflineSyncManager();
-

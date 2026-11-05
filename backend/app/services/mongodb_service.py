@@ -1,6 +1,7 @@
 import uuid
 import time
 import logging
+import threading
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, List, Optional
 from pymongo import MongoClient, ASCENDING
@@ -18,6 +19,7 @@ class MongoDBService:
         self._client: Optional[MongoClient] = None
         self._db = None
         self._connected = False
+        self._connecting = False
         self._last_attempt = 0.0
         self._init_connection()
 
@@ -45,10 +47,18 @@ class MongoDBService:
         if self._connected and self._db is not None:
             return True
         now = time.time()
-        # Cooldown reconnect attempts by at least 30 seconds to prevent blocking requests
-        if settings.is_mongodb_configured and not self._connected and (now - self._last_attempt > 30):
-            self._init_connection()
+        # Attempt background reconnect after cooldown without blocking the current request
+        if settings.is_mongodb_configured and not self._connected and not self._connecting and (now - self._last_attempt > 30):
+            self._last_attempt = now
+            self._connecting = True
+            threading.Thread(target=self._async_reconnect, daemon=True).start()
         return self._connected
+
+    def _async_reconnect(self):
+        try:
+            self._init_connection()
+        finally:
+            self._connecting = False
 
     def _ensure_indexes_and_seed(self):
         if not self._connected or self._db is None:
