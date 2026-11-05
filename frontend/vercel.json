@@ -5,6 +5,14 @@
             "destination": "https://snap2learn-with-ai.onrender.com/api/$1"
         },
         {
+            "source": "/health",
+            "destination": "https://snap2learn-with-ai.onrender.com/health"
+        },
+        {
+            "source": "/ping",
+            "destination": "https://snap2learn-with-ai.onrender.com/ping"
+        },
+        {
             "source": "/(.*)",
             "destination": "/index.html"
         }

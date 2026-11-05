@@ -40,6 +40,7 @@ app.add_middleware(
 
 # Include API Routers under /api
 app.include_router(health.router, prefix="/api")
+app.include_router(health.router)  # Direct /health for Render cronjobs & keep-alive pingers
 app.include_router(auth.router, prefix="/api")
 app.include_router(scan.router, prefix="/api")
 app.include_router(explain.router, prefix="/api")
@@ -55,8 +56,13 @@ def root():
         "message": "Welcome to Snap2Learn AI Backend API",
         "tagline": settings.TAGLINE,
         "docs_url": "/docs",
-        "health_url": "/api/health"
+        "health_url": "/health",
+        "api_health_url": "/api/health"
     }
+
+@app.get("/ping", tags=["Health"])
+def ping():
+    return {"status": "ok", "message": "pong"}
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):

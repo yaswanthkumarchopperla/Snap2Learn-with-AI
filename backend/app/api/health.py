@@ -6,6 +6,7 @@ from app.services.brevo_service import brevo_service
 router = APIRouter(prefix="/health", tags=["Health"])
 
 @router.get("")
+@router.get("/")
 def health_check():
     return {
         "status": "healthy",

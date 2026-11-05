@@ -19,14 +19,19 @@ from app.services.gemini_service import safe_parse_gemini_json
 client = TestClient(app)
 
 def test_health_endpoint():
-    """Test GET /api/health returns healthy status and features flag."""
-    response = client.get("/api/health")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "healthy"
-    assert "features" in data
-    assert data["features"]["deterministic_scoring"] is True
-    assert "demo_mode_active" in data
+    """Test GET /api/health and /health return healthy status and features flag."""
+    for path in ["/api/health", "/health", "/health/"]:
+        response = client.get(path)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "healthy"
+        assert "features" in data
+        assert data["features"]["deterministic_scoring"] is True
+        assert "demo_mode_active" in data
+
+    ping_res = client.get("/ping")
+    assert ping_res.status_code == 200
+    assert ping_res.json()["status"] == "ok"
 
 def test_image_upload_invalid_type():
     """Test uploading a non-image file returns 400 Bad Request."""
