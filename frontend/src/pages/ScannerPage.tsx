@@ -29,7 +29,8 @@ import {
   Info,
   History,
   Play,
-  Pause
+  Pause,
+  Layers
 } from 'lucide-react';
 import { SidebarLayout } from '../components/Sidebar';
 import { CameraCapture } from '../components/CameraCapture';
@@ -1349,7 +1350,7 @@ export const ScannerPage: React.FC = () => {
                 </div>
 
                 {/* Bottom Navigation Buttons */}
-                <div className="flex items-center justify-between pt-4 border-t border-border">
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-4 border-t border-border">
                   <button
                     type="button"
                     onClick={() => goToStep(2)}
@@ -1358,15 +1359,35 @@ export const ScannerPage: React.FC = () => {
                     <ArrowLeft className="w-3.5 h-3.5" /> Back to Edit Text
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={handleStartQuiz}
-                    className="px-6 py-3 rounded-xl bg-gradient-to-r from-primary to-secondary text-white font-bold text-xs shadow-lg glow-primary hover:opacity-95 transition-all flex items-center gap-2"
-                  >
-                    <Award className="w-4 h-4" />
-                    <span>Generate Practice Quiz</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigate('/flashcards', {
+                          state: {
+                            generateTopic: editedTopic || scanResult?.topic || 'Core Concepts',
+                            generateSubject: editedSubject || scanResult?.subject || 'Engineering',
+                            contextText: editedText || scanResult?.text || '',
+                          },
+                        });
+                      }}
+                      className="px-4 py-2.5 rounded-xl bg-surface hover:bg-surface-hover border border-secondary/40 text-foreground font-semibold text-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                      title="Generate and auto-save active recall flashcards from this note"
+                    >
+                      <Layers className="w-4 h-4 text-emerald-400" />
+                      <span>Create Flashcards</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleStartQuiz}
+                      className="px-6 py-3 rounded-xl bg-gradient-to-r from-primary to-secondary text-white font-bold text-xs shadow-lg glow-primary hover:opacity-95 transition-all flex items-center gap-2"
+                    >
+                      <Award className="w-4 h-4" />
+                      <span>Generate Practice Quiz</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -1751,6 +1772,22 @@ export const ScannerPage: React.FC = () => {
                   className="px-5 py-2.5 rounded-xl bg-surface hover:bg-surface-hover text-foreground text-xs font-semibold border border-border transition-colors flex items-center gap-1.5"
                 >
                   <BookOpen className="w-3.5 h-3.5 text-secondary" /> Review Notes
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigate('/flashcards', {
+                      state: {
+                        generateTopic: editedTopic || scanResult?.topic || 'Core Concepts',
+                        generateSubject: editedSubject || scanResult?.subject || 'Engineering',
+                        contextText: editedText || scanResult?.text || '',
+                      },
+                    });
+                  }}
+                  className="px-5 py-2.5 rounded-xl bg-surface hover:bg-surface-hover text-foreground text-xs font-semibold border border-border transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Layers className="w-3.5 h-3.5 text-emerald-400" /> Revise with Flashcards
                 </button>
 
                 <button

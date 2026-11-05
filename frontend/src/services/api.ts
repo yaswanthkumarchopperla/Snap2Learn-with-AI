@@ -364,6 +364,42 @@ export const api = {
     return res.json();
   },
 
+  async generateFlashcards(data: {
+    topic: string;
+    subject?: string;
+    context_text?: string;
+    card_count?: number;
+    note_id?: string;
+    difficulty_focus?: Difficulty | 'mixed';
+  }): Promise<{
+    cards: FlashcardItem[];
+    count: number;
+    topic: string;
+    subject: string;
+    is_demo?: boolean;
+    autosaved: boolean;
+  }> {
+    const res = await fetch(`${API_BASE}/flashcards/generate`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Failed to generate flashcards');
+    }
+    return res.json();
+  },
+
+  async deleteFlashcard(cardId: string): Promise<{ status: string; deleted_card_id: string }> {
+    const res = await fetch(`${API_BASE}/flashcards/${cardId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to delete flashcard');
+    return res.json();
+  },
+
   async getProgress(): Promise<ProgressAnalytics> {
     const res = await fetch(`${API_BASE}/progress`, { headers: getAuthHeaders() });
     if (!res.ok) throw new Error('Failed to load progress analytics');

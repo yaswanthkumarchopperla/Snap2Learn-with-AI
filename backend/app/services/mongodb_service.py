@@ -669,6 +669,15 @@ class MongoDBService:
         return None
 
     # -------------------------------------------------------------
+    def delete_flashcard(self, card_id: str, user_id: Optional[str] = None) -> bool:
+        if not self.is_connected:
+            return False
+        query: Dict[str, Any] = {"id": card_id}
+        if user_id:
+            query["$or"] = [{"user_id": user_id}, {"user_id": "guest_student"}]
+        res = self._db.flashcards.delete_one(query)
+        return res.deleted_count > 0
+
     # Scanned Notes & History Operations
     # -------------------------------------------------------------
     def save_scan(self, scan_data: Dict[str, Any], user_id: str = "guest_student") -> Dict[str, Any]:

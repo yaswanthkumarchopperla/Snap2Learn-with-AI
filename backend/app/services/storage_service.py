@@ -427,6 +427,16 @@ class InMemoryStore:
             return fc
         return None
 
+    def delete_flashcard(self, card_id: str, user_id: Optional[str] = None) -> bool:
+        if card_id in self.flashcards:
+            existing = self.flashcards[card_id]
+            if user_id and existing.user_id not in (user_id, "guest_student"):
+                return False
+            del self.flashcards[card_id]
+            self._save_to_disk()
+            return True
+        return False
+
     # Scan operations
     def save_scan(self, scan_data: Dict[str, Any], user_id: str = "guest_student") -> Dict[str, Any]:
         scan_id = scan_data.get("id") or scan_data.get("scan_id") or f"scan-{uuid.uuid4().hex[:8]}"
@@ -854,6 +864,13 @@ class HybridStorageStore:
             if res_mongo:
                 return res_mongo
         return res_mem
+
+    def delete_flashcard(self, card_id: str, user_id: Optional[str] = None) -> bool:
+        deleted_local = self.in_memory.delete_flashcard(card_id, user_id)
+        if mongodb_service.is_connected:
+            deleted_mongo = mongodb_service.delete_flashcard(card_id, user_id)
+            return deleted_mongo or deleted_local
+        return deleted_local
 
     # Scans operations
     def save_scan(self, scan_data: Dict[str, Any], user_id: str = "guest_student") -> Dict[str, Any]:

@@ -13,7 +13,8 @@ import {
   Clock,
   CheckCircle2,
   Edit3,
-  Eye
+  Eye,
+  Layers
 } from 'lucide-react';
 import { SidebarLayout } from '../components/Sidebar';
 import { MathRenderer } from '../components/MathRenderer';
@@ -318,6 +319,22 @@ export const NotesPage: React.FC = () => {
                         title="Generate Quiz on this note"
                       >
                         <Award className="w-4 h-4 text-accent" />
+                      </button>
+                      <button
+                        onClick={() =>
+                          navigate('/flashcards', {
+                            state: {
+                              generateTopic: selectedNote.topic,
+                              generateSubject: selectedNote.subject,
+                              contextText: selectedNote.raw_text,
+                              noteId: selectedNote.id,
+                            },
+                          })
+                        }
+                        className="p-2 rounded-xl bg-surface border border-border hover:bg-surface-hover text-foreground-muted hover:text-foreground transition-colors cursor-pointer"
+                        title="Generate Flashcards on this note"
+                      >
+                        <Layers className="w-4 h-4 text-emerald-400" />
                       </button>
                     </div>
                   </div>

@@ -72,6 +72,22 @@ class FlashcardReviewRequest(BaseModel):
     rating: Literal["easy", "medium", "hard"]
     learning_status: Optional[Literal["known", "learning", "unknown"]] = None
 
+class FlashcardGenerateRequest(BaseModel):
+    topic: str
+    subject: Optional[str] = "General"
+    context_text: Optional[str] = None
+    card_count: int = Field(default=5, ge=1, le=20)
+    note_id: Optional[str] = None
+    difficulty_focus: Optional[Literal["easy", "medium", "hard", "mixed"]] = "mixed"
+
+class FlashcardGenerateResponse(BaseModel):
+    cards: List[FlashcardItem]
+    count: int
+    topic: str
+    subject: str
+    is_demo: bool = False
+    autosaved: bool = True
+
 class ProgressAnalytics(BaseModel):
     total_notes: int
     quizzes_completed: int

@@ -1,8 +1,16 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from typing import List, Optional
 from pydantic import BaseModel
-from app.schemas.note import FlashcardItem, FlashcardCreate, FlashcardUpdate, FlashcardReviewRequest
+from app.schemas.note import (
+    FlashcardItem,
+    FlashcardCreate,
+    FlashcardUpdate,
+    FlashcardReviewRequest,
+    FlashcardGenerateRequest,
+    FlashcardGenerateResponse
+)
 from app.services.storage_service import store
+from app.services.gemini_service import gemini_service
 from app.api.auth import get_optional_current_user, AuthUserResponse
 
 router = APIRouter(prefix="/flashcards", tags=["Flashcards"])
@@ -18,6 +26,46 @@ def list_flashcards(
     """Retrieve flashcards for the current user with optional subject filter."""
     user_id = current_user.id if current_user else "guest_student"
     return store.get_flashcards(subject=subject, user_id=user_id)
+
+@router.post("/generate", response_model=FlashcardGenerateResponse)
+def generate_flashcards_endpoint(
+    payload: FlashcardGenerateRequest,
+    current_user: Optional[AuthUserResponse] = Depends(get_optional_current_user)
+):
+    """
+    Generate topic-focused active recall flashcards using Gemini AI and
+    immediately auto-save them for continuous revision anytime.
+    """
+    user_id = current_user.id if current_user else "guest_student"
+
+    if not payload.topic or not payload.topic.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Topic is required to generate topic-relevant flashcards."
+        )
+
+    # 1. Generate active recall cards via Gemini service (with fallback & retry support)
+    card_creates, is_demo = gemini_service.generate_flashcards(
+        topic=payload.topic.strip(),
+        subject=payload.subject or "General",
+        context_text=payload.context_text,
+        card_count=payload.card_count,
+        difficulty_focus=payload.difficulty_focus or "mixed",
+        note_id=payload.note_id
+    )
+
+    # 2. Immediately autosave each generated card into the database
+    cards_data = [c.model_dump() for c in card_creates]
+    saved_cards = store.save_flashcards_batch(cards=cards_data, user_id=user_id)
+
+    return FlashcardGenerateResponse(
+        cards=saved_cards,
+        count=len(saved_cards),
+        topic=payload.topic.strip(),
+        subject=payload.subject or "General",
+        is_demo=is_demo,
+        autosaved=True
+    )
 
 @router.post("", response_model=FlashcardItem)
 def create_flashcard(
@@ -67,6 +115,21 @@ def update_flashcard(
             detail=f"Flashcard '{card_id}' not found."
         )
     return updated
+
+@router.delete("/{card_id}")
+def delete_flashcard(
+    card_id: str,
+    current_user: Optional[AuthUserResponse] = Depends(get_optional_current_user)
+):
+    """Delete a flashcard from the student's study deck."""
+    user_id = current_user.id if current_user else "guest_student"
+    success = store.delete_flashcard(card_id=card_id, user_id=user_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Flashcard '{card_id}' not found or unauthorized to delete."
+        )
+    return {"status": "success", "deleted_card_id": card_id}
 
 @router.post("/{card_id}/review", response_model=FlashcardItem)
 def review_flashcard(card_id: str, request: FlashcardReviewRequest):
