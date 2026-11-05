@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { KeyRound, Mail, ArrowRight, ShieldCheck, CheckCircle2, AlertCircle, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { api } from '../services/api';
 import CodeSlots from '../components/CodeSlots';
+import Antigravity from '../components/Antigravity';
 
 export const ResetPasswordPage: React.FC = () => {
   const navigate = useNavigate();
@@ -91,6 +92,18 @@ export const ResetPasswordPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+      {/* Interactive Antigravity Particle Field Background */}
+      <div className="absolute inset-0 z-0 opacity-65 pointer-events-auto">
+        <Antigravity
+          colors={['#6366f1', '#38bdf8', '#c084fc', '#818cf8']}
+          count={1200}
+          magnetRadius={8}
+          ringRadius={6}
+          particleSize={0.85}
+          autoAnimate={true}
+        />
+      </div>
+
       {/* Background glow accents */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-sky-600/10 rounded-full blur-3xl pointer-events-none" />

@@ -18,6 +18,7 @@ import {
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 import { MathRenderer } from '../components/MathRenderer';
+import Antigravity from '../components/Antigravity';
 
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
@@ -109,6 +110,18 @@ export const LandingPage: React.FC = () => {
 
       {/* Hero Section */}
       <section className="relative pt-12 pb-20 md:pt-20 md:pb-32 px-4 sm:px-6 lg:px-8 overflow-hidden gradient-mesh">
+        {/* Interactive Antigravity Particle Field Background */}
+        <div className="absolute inset-0 z-0 opacity-55 pointer-events-auto">
+          <Antigravity
+            colors={['#5227FF', '#38bdf8', '#FF9FFC', '#818cf8']}
+            count={1400}
+            magnetRadius={9}
+            ringRadius={7}
+            particleSize={0.9}
+            autoAnimate={true}
+          />
+        </div>
+
         {/* Subtle decorative glow spheres */}
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-primary/15 rounded-full blur-[120px] pointer-events-none" />
         <div className="absolute top-1/3 right-1/4 w-[300px] h-[200px] bg-secondary/10 rounded-full blur-[100px] pointer-events-none" />

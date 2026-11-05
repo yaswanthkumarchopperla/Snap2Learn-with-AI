@@ -3,6 +3,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { BookOpen, Sparkles, Mail, User, ArrowRight, CheckCircle2, RefreshCw, ChevronLeft, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import CodeSlots from '../components/CodeSlots';
+import Antigravity from '../components/Antigravity';
 
 export const AuthPage: React.FC = () => {
   const navigate = useNavigate();
@@ -87,9 +88,21 @@ export const AuthPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 gradient-mesh selection:bg-primary/30">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 gradient-mesh selection:bg-primary/30 relative overflow-hidden">
+      {/* Interactive Antigravity Particle Field Background */}
+      <div className="absolute inset-0 z-0 opacity-65 pointer-events-auto">
+        <Antigravity
+          colors={['#6366f1', '#38bdf8', '#818cf8', '#c084fc']}
+          count={1200}
+          magnetRadius={8}
+          ringRadius={6}
+          particleSize={0.85}
+          autoAnimate={true}
+        />
+      </div>
+
       {/* Brand Header */}
-      <Link to="/" className="flex items-center gap-2.5 mb-8 group">
+      <Link to="/" className="flex items-center gap-2.5 mb-8 group relative z-10">
         <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary to-secondary p-0.5 shadow-md">
           <div className="w-full h-full bg-[#080B18] rounded-[10px] flex items-center justify-center">
             <BookOpen className="w-5 h-5 text-secondary" />
@@ -103,7 +116,7 @@ export const AuthPage: React.FC = () => {
         </div>
       </Link>
 
-      <div className="w-full max-w-md glass-card p-6 sm:p-8 border border-border">
+      <div className="w-full max-w-md glass-card p-6 sm:p-8 border border-border relative z-10 shadow-2xl backdrop-blur-xl">
         {/* Step Indicator Header */}
         <div className="mb-6 text-center">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary-light text-[11px] font-medium mb-2">
@@ -288,7 +301,7 @@ export const AuthPage: React.FC = () => {
         </div>
       </div>
 
-      <p className="text-xs text-foreground-muted mt-6">
+      <p className="text-xs text-foreground-muted mt-6 relative z-10">
         First-Year CSE-AIML College Study Suite
       </p>
     </div>
