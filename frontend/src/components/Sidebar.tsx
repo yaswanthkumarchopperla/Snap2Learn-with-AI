@@ -50,11 +50,9 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
           </button>
           <span className="font-bold text-sm tracking-tight text-foreground">Snap2Learn AI</span>
         </div>
-        {user?.isGuest && (
-          <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 text-[10px] font-semibold border border-amber-500/20">
-            Guest Demo
-          </span>
-        )}
+        <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-semibold border border-emerald-500/20">
+          Verified Student
+        </span>
       </div>
 
       {/* Sidebar Navigation */}
@@ -76,17 +74,6 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
               <p className="text-[10px] text-foreground-muted font-medium">CSE-AIML Workspace</p>
             </div>
           </div>
-
-          {/* Guest Mode Notice */}
-          {user?.isGuest && (
-            <div className="mx-4 mt-4 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-2">
-              <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-[11px] font-semibold text-amber-300">Guest Demo Mode</p>
-                <p className="text-[10px] text-amber-300/80 leading-tight">Session data is stored in memory.</p>
-              </div>
-            </div>
-          )}
 
           {/* Quick Action: Scan New Note */}
           <div className="px-4 mt-4">
@@ -149,9 +136,9 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
             <button
               onClick={() => {
                 logout();
-                navigate('/');
+                navigate('/auth');
               }}
-              className="p-1.5 rounded-lg text-foreground-muted hover:text-red-400 hover:bg-surface-hover transition-colors"
+              className="p-1.5 rounded-lg text-foreground-muted hover:text-red-400 hover:bg-surface-hover transition-colors cursor-pointer"
               title="Sign out"
             >
               <LogOut className="w-4 h-4" />

@@ -13,79 +13,83 @@ export interface UserProfile {
 interface AuthContextType {
   user: UserProfile | null;
   isLoading: boolean;
-  loginAsGuest: () => Promise<void>;
   sendOtp: (email: string, name?: string) => Promise<string>;
   verifyOtp: (email: string, otp: string, name?: string) => Promise<void>;
-  loginWithEmail: (email: string, password?: string) => Promise<void>;
-  signupWithEmail: (email: string, password?: string, name?: string) => Promise<void>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   isLoading: true,
-  loginAsGuest: async () => {},
   sendOtp: async () => '',
   verifyOtp: async () => {},
-  loginWithEmail: async () => {},
-  signupWithEmail: async () => {},
   logout: () => {},
 });
 
-const DEMO_GUEST_USER: UserProfile = {
-  id: 'guest-aiml-2026',
-  email: 'student@aiml.college.edu',
-  displayName: 'First-Year CSE-AIML Student',
-  collegeBranch: 'CSE (AI & ML)',
-  isGuest: true,
-};
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<UserProfile | null>(() => {
-    const saved = localStorage.getItem('snap2learn_user');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return DEMO_GUEST_USER;
-      }
-    }
-    return DEMO_GUEST_USER;
-  });
-  const [isLoading, setIsLoading] = useState(false);
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
+  // Validate active JWT session on startup with backend
   useEffect(() => {
-    if (user) {
-      localStorage.setItem('snap2learn_user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('snap2learn_user');
-      localStorage.removeItem('snap2learn_token');
-    }
-  }, [user]);
+    let isMounted = true;
 
-  const loginAsGuest = async () => {
-    setIsLoading(true);
-    try {
-      try {
-        const res = await api.guestLogin();
-        if (res.token) {
-          localStorage.setItem('snap2learn_token', res.token);
+    async function initializeAuth() {
+      const storedToken = localStorage.getItem('snap2learn_token');
+      const storedUser = localStorage.getItem('snap2learn_user');
+
+      if (!storedToken || !storedUser) {
+        // No authenticated session
+        if (isMounted) {
+          setUser(null);
+          setIsLoading(false);
         }
-        setUser({
-          id: res.user.id,
-          email: res.user.email,
-          displayName: res.user.name,
-          collegeBranch: res.user.college_branch || 'CSE (AI & ML)',
-          isGuest: true,
-          token: res.token,
-        });
-      } catch {
-        setUser(DEMO_GUEST_USER);
+        return;
       }
-    } finally {
-      setIsLoading(false);
+
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        // Do not accept old or legacy guest demo sessions as authenticated
+        if (parsedUser.isGuest) {
+          throw new Error('Guest session not permitted');
+        }
+
+        // Verify token authenticity against backend
+        const verifiedProfile = await api.getMe(storedToken);
+        if (isMounted && verifiedProfile && !verifiedProfile.is_guest) {
+          const validUser: UserProfile = {
+            id: verifiedProfile.id,
+            email: verifiedProfile.email,
+            displayName: verifiedProfile.name,
+            collegeBranch: verifiedProfile.college_branch || 'CSE (AI & ML)',
+            isGuest: false,
+            token: storedToken,
+          };
+          setUser(validUser);
+          localStorage.setItem('snap2learn_user', JSON.stringify(validUser));
+        } else {
+          throw new Error('Invalid user profile');
+        }
+      } catch (err) {
+        // If token is expired, invalid, or guest, clear session
+        localStorage.removeItem('snap2learn_token');
+        localStorage.removeItem('snap2learn_user');
+        if (isMounted) {
+          setUser(null);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
     }
-  };
+
+    initializeAuth();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const sendOtp = async (email: string, name?: string): Promise<string> => {
     setIsLoading(true);
@@ -104,7 +108,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (res.token) {
         localStorage.setItem('snap2learn_token', res.token);
       }
-      const verifiedUser: UserProfile = {
+      const authenticatedUser: UserProfile = {
         id: res.user.id,
         email: res.user.email,
         displayName: res.user.name,
@@ -112,18 +116,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isGuest: false,
         token: res.token,
       };
-      setUser(verifiedUser);
+      localStorage.setItem('snap2learn_user', JSON.stringify(authenticatedUser));
+      setUser(authenticatedUser);
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const loginWithEmail = async (email: string) => {
-    await sendOtp(email);
-  };
-
-  const signupWithEmail = async (email: string, _password?: string, name?: string) => {
-    await sendOtp(email, name);
   };
 
   const logout = () => {
@@ -137,11 +134,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       value={{
         user,
         isLoading,
-        loginAsGuest,
         sendOtp,
         verifyOtp,
-        loginWithEmail,
-        signupWithEmail,
         logout,
       }}
     >

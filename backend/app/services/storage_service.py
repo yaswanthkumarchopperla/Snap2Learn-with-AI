@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, List, Optional
 from app.schemas.note import NoteItem, FlashcardItem, ProgressAnalytics
 from app.schemas.quiz import QuestionItem
@@ -11,6 +11,8 @@ class InMemoryStore:
         self.attempts: List[Dict[str, Any]] = []
         self.flashcards: Dict[str, FlashcardItem] = {}
         self.otps: Dict[str, str] = {}
+        self.users: Dict[str, Dict[str, Any]] = {}
+        self.reset_tokens: Dict[str, Dict[str, Any]] = {}
         self._seed_initial_data()
 
     def _seed_initial_data(self):
@@ -308,30 +310,92 @@ class HybridStorageStore:
 
     # User Auth & OTP
     def save_otp(self, email: str, otp: str, expires_minutes: int = 10) -> bool:
-        self.in_memory.otps[email.lower().strip()] = otp
+        email_clean = email.lower().strip()
+        self.in_memory.otps[email_clean] = otp
         if mongodb_service.is_connected:
-            return mongodb_service.save_otp(email, otp, expires_minutes)
+            mongodb_service.save_otp(email_clean, otp, expires_minutes)
         return True
 
     def verify_otp(self, email: str, otp: str) -> bool:
+        email_clean = email.lower().strip()
+        code_clean = otp.strip()
         if mongodb_service.is_connected:
-            return mongodb_service.verify_otp(email, otp)
-        expected = self.in_memory.otps.get(email.lower().strip())
-        if expected and expected == otp.strip():
-            self.in_memory.otps.pop(email.lower().strip(), None)
+            if mongodb_service.verify_otp(email_clean, code_clean):
+                return True
+        expected = self.in_memory.otps.get(email_clean)
+        if expected and expected == code_clean:
+            self.in_memory.otps.pop(email_clean, None)
             return True
         return False
 
-    def get_or_create_user(self, email: str, name: Optional[str] = None) -> Dict[str, Any]:
+    def save_reset_token(self, email: str, token: str, otp: str, expires_minutes: int = 15) -> bool:
+        email_clean = email.lower().strip()
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)
+        self.in_memory.reset_tokens[email_clean] = {
+            "token": token,
+            "otp": otp,
+            "expires_at": expires_at.isoformat(),
+            "used": False
+        }
         if mongodb_service.is_connected:
-            return mongodb_service.get_or_create_user(email, name)
-        return {
+            mongodb_service.save_reset_token(email_clean, token, otp, expires_minutes)
+        return True
+
+    def verify_reset_otp(self, email: str, otp: str) -> bool:
+        email_clean = email.lower().strip()
+        code_clean = otp.strip()
+        if mongodb_service.is_connected:
+            if mongodb_service.verify_reset_otp(email_clean, code_clean):
+                return True
+        rec = self.in_memory.reset_tokens.get(email_clean)
+        if rec and not rec.get("used") and rec.get("otp") == code_clean:
+            exp_str = rec.get("expires_at")
+            if exp_str:
+                try:
+                    if datetime.now(timezone.utc) > datetime.fromisoformat(exp_str):
+                        return False
+                except Exception:
+                    pass
+            rec["used"] = True
+            return True
+        return False
+
+    def set_user_password(self, email: str, password_hash: str) -> bool:
+        email_clean = email.lower().strip()
+        user = self.get_or_create_user(email_clean)
+        user["password_hash"] = password_hash
+        self.in_memory.users[email_clean] = user
+        if mongodb_service.is_connected:
+            mongodb_service.set_user_password(email_clean, password_hash)
+        return True
+
+    def get_user_by_email(self, email: str) -> Optional[Dict[str, Any]]:
+        email_clean = email.lower().strip()
+        if mongodb_service.is_connected:
+            u = mongodb_service.get_user_by_email(email_clean)
+            if u:
+                return u
+        return self.in_memory.users.get(email_clean)
+
+    def get_or_create_user(self, email: str, name: Optional[str] = None) -> Dict[str, Any]:
+        email_clean = email.lower().strip()
+        if mongodb_service.is_connected:
+            user = mongodb_service.get_or_create_user(email_clean, name)
+            if user:
+                return user
+
+        if email_clean in self.in_memory.users:
+            return self.in_memory.users[email_clean]
+
+        user = {
             "id": f"usr-{uuid.uuid4().hex[:8]}",
-            "email": email,
-            "name": name or email.split("@")[0].capitalize(),
+            "email": email_clean,
+            "name": name or email_clean.split("@")[0].capitalize(),
             "college_branch": "CSE (AI & ML)",
             "created_at": datetime.now(timezone.utc).isoformat()
         }
+        self.in_memory.users[email_clean] = user
+        return user
 
 
 store = HybridStorageStore()

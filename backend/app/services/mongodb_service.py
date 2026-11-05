@@ -29,8 +29,8 @@ class MongoDBService:
 
         try:
             self._client = MongoClient(settings.MONGODB_URI, serverSelectionTimeoutMS=4000)
-            # Test connection
-            self._client.server_info()
+            # Test actual connection and authentication with ping
+            self._client.admin.command('ping')
             self._db = self._client[settings.MONGODB_DB_NAME]
             self._connected = True
             logger.info(f"Connected to MongoDB Atlas database: {settings.MONGODB_DB_NAME}")
@@ -141,55 +141,147 @@ class MongoDBService:
     # Auth & OTP Operations
     # -------------------------------------------------------------
     def save_otp(self, email: str, otp: str, expires_minutes: int = 10) -> bool:
-        if not self.is_connected:
+        if not self.is_connected or self._db is None:
             return False
-        expires_at = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)
-        self._db.otps.update_one(
-            {"email": email.lower().strip()},
-            {"$set": {
-                "otp": otp,
-                "expires_at": expires_at.isoformat(),
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "verified": False
-            }},
-            upsert=True
-        )
-        return True
+        try:
+            expires_at = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)
+            self._db.otps.update_one(
+                {"email": email.lower().strip()},
+                {"$set": {
+                    "otp": otp,
+                    "expires_at": expires_at.isoformat(),
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "verified": False
+                }},
+                upsert=True
+            )
+            return True
+        except Exception as e:
+            logger.warning(f"Error saving OTP in MongoDB: {e}")
+            return False
 
     def verify_otp(self, email: str, submitted_otp: str) -> bool:
-        if not self.is_connected:
+        if not self.is_connected or self._db is None:
             return False
-        rec = self._db.otps.find_one({"email": email.lower().strip()})
-        if not rec:
-            return False
-        if rec.get("otp") != submitted_otp.strip():
-            return False
-        
-        expires_at_str = rec.get("expires_at")
-        if expires_at_str:
-            try:
-                expires_at = datetime.fromisoformat(expires_at_str)
-                if datetime.now(timezone.utc) > expires_at:
-                    return False
-            except Exception:
-                pass
+        try:
+            rec = self._db.otps.find_one({"email": email.lower().strip()})
+            if not rec:
+                return False
+            if rec.get("otp") != submitted_otp.strip():
+                return False
+            
+            expires_at_str = rec.get("expires_at")
+            if expires_at_str:
+                try:
+                    expires_at = datetime.fromisoformat(expires_at_str)
+                    if datetime.now(timezone.utc) > expires_at:
+                        return False
+                except Exception:
+                    pass
 
-        # Mark as verified and invalidate
-        self._db.otps.update_one(
-            {"email": email.lower().strip()},
-            {"$set": {"verified": True, "otp": ""}}
-        )
-        return True
+            # Mark as verified and invalidate
+            self._db.otps.update_one(
+                {"email": email.lower().strip()},
+                {"$set": {"verified": True, "otp": ""}}
+            )
+            return True
+        except Exception as e:
+            logger.warning(f"Error verifying OTP in MongoDB: {e}")
+            return False
+
+    def save_reset_token(self, email: str, token: str, otp: str, expires_minutes: int = 15) -> bool:
+        if not self.is_connected or self._db is None:
+            return False
+        try:
+            expires_at = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)
+            self._db.reset_tokens.update_one(
+                {"email": email.lower().strip()},
+                {"$set": {
+                    "token": token,
+                    "otp": otp,
+                    "expires_at": expires_at.isoformat(),
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "used": False
+                }},
+                upsert=True
+            )
+            return True
+        except Exception as e:
+            logger.warning(f"Error saving reset token in MongoDB: {e}")
+            return False
+
+    def verify_reset_otp(self, email: str, submitted_otp: str) -> bool:
+        if not self.is_connected or self._db is None:
+            return False
+        try:
+            rec = self._db.reset_tokens.find_one({"email": email.lower().strip()})
+            if not rec or rec.get("used"):
+                return False
+            if rec.get("otp") != submitted_otp.strip():
+                return False
+            expires_at_str = rec.get("expires_at")
+            if expires_at_str:
+                try:
+                    if datetime.now(timezone.utc) > datetime.fromisoformat(expires_at_str):
+                        return False
+                except Exception:
+                    pass
+            self._db.reset_tokens.update_one(
+                {"email": email.lower().strip()},
+                {"$set": {"used": True}}
+            )
+            return True
+        except Exception as e:
+            logger.warning(f"Error verifying reset OTP in MongoDB: {e}")
+            return False
+
+    def set_user_password(self, email: str, password_hash: str) -> bool:
+        if not self.is_connected or self._db is None:
+            return False
+        try:
+            self._db.users.update_one(
+                {"email": email.lower().strip()},
+                {"$set": {
+                    "password_hash": password_hash,
+                    "password_updated_at": datetime.now(timezone.utc).isoformat()
+                }}
+            )
+            return True
+        except Exception as e:
+            logger.warning(f"Error setting user password in MongoDB: {e}")
+            return False
+
+    def get_user_by_email(self, email: str) -> Optional[Dict[str, Any]]:
+        if not self.is_connected or self._db is None:
+            return None
+        try:
+            user = self._db.users.find_one({"email": email.lower().strip()})
+            if user:
+                user["id"] = user.get("id") or str(user.get("_id"))
+                user.pop("_id", None)
+            return user
+        except Exception as e:
+            logger.warning(f"Error fetching user by email from MongoDB: {e}")
+            return None
 
     def get_or_create_user(self, email: str, name: Optional[str] = None) -> Dict[str, Any]:
         email_clean = email.lower().strip()
-        user = self._db.users.find_one({"email": email_clean}) if self.is_connected else None
+        user = None
+        if self.is_connected and self._db is not None:
+            try:
+                user = self._db.users.find_one({"email": email_clean})
+            except Exception as e:
+                logger.warning(f"Error reading user from MongoDB: {e}")
+
         now_iso = datetime.now(timezone.utc).isoformat()
         if user:
-            self._db.users.update_one(
-                {"email": email_clean},
-                {"$set": {"last_login": now_iso}}
-            )
+            try:
+                self._db.users.update_one(
+                    {"email": email_clean},
+                    {"$set": {"last_login": now_iso}}
+                )
+            except Exception:
+                pass
             user["last_login"] = now_iso
             user["id"] = user.get("id") or str(user.get("_id"))
             return user
@@ -204,14 +296,21 @@ class MongoDBService:
             "created_at": now_iso,
             "last_login": now_iso
         }
-        if self.is_connected:
-            self._db.users.insert_one(new_user)
+        if self.is_connected and self._db is not None:
+            try:
+                self._db.users.insert_one(new_user)
+            except Exception as e:
+                logger.warning(f"Error inserting user in MongoDB: {e}")
         return new_user
 
     def get_user_by_id(self, user_id: str) -> Optional[Dict[str, Any]]:
-        if not self.is_connected:
+        if not self.is_connected or self._db is None:
             return None
-        return self._db.users.find_one({"$or": [{"id": user_id}, {"_id": user_id}]}, {"_id": 0})
+        try:
+            return self._db.users.find_one({"$or": [{"id": user_id}, {"_id": user_id}]}, {"_id": 0})
+        except Exception as e:
+            logger.warning(f"Error fetching user by id in MongoDB: {e}")
+            return None
 
     # -------------------------------------------------------------
     # Note Operations

@@ -99,6 +99,105 @@ class BrevoService:
             logger.error(f"Failed to deliver Brevo OTP email to {to_email}: {e}")
             return False
 
+    def send_password_reset_email(
+        self,
+        to_email: str,
+        otp: str,
+        reset_link: Optional[str] = None,
+        student_name: Optional[str] = None
+    ) -> bool:
+        """Sends student a password reset 6-digit OTP code and direct reset link via Brevo."""
+        if not self.is_configured:
+            logger.warning("Brevo API key is not configured; skipping email dispatch")
+            return False
+
+        greeting = f"Hi {student_name}," if student_name else "Hello Student,"
+        link_button = ""
+        if reset_link:
+            link_button = f"""
+            <div style="text-align: center; margin: 24px 0;">
+              <a href="{reset_link}" style="background: linear-gradient(135deg, #4f46e5 0%, #38bdf8 100%); color: #ffffff; text-decoration: none; font-weight: 600; font-size: 15px; padding: 12px 28px; border-radius: 8px; display: inline-block;">
+                Reset Your Password
+              </a>
+            </div>
+            """
+
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0b0f19; color: #f1f5f9; margin: 0; padding: 24px; }}
+            .container {{ max-width: 540px; margin: 0 auto; background: #131b2e; border: 1px solid #1e293b; border-radius: 16px; padding: 32px; box-shadow: 0 10px 25px rgba(0,0,0,0.4); }}
+            .logo {{ font-size: 22px; font-weight: 800; color: #818cf8; letter-spacing: -0.5px; margin-bottom: 24px; }}
+            .logo span {{ color: #38bdf8; }}
+            h2 {{ font-size: 20px; font-weight: 700; margin-top: 0; color: #f8fafc; }}
+            p {{ font-size: 14px; line-height: 1.6; color: #94a3b8; }}
+            .otp-box {{ background: #1e293b; border: 2px dashed #0284c7; border-radius: 12px; padding: 20px; text-align: center; margin: 24px 0; }}
+            .otp-code {{ font-size: 38px; font-weight: 800; letter-spacing: 10px; color: #38bdf8; font-family: monospace; }}
+            .warning {{ font-size: 12px; color: #64748b; margin-top: 20px; text-align: center; }}
+            .footer {{ border-top: 1px solid #1e293b; margin-top: 32px; padding-top: 16px; font-size: 11px; color: #475569; text-align: center; }}
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="logo">Snap2Learn<span>AI</span></div>
+            <h2>Password Reset Request</h2>
+            <p>{greeting}</p>
+            <p>We received a request to reset your password for your Snap2Learn AI account. Enter the 6-digit code below on the password reset page, or click the direct button:</p>
+            
+            <div class="otp-box">
+              <div class="otp-code">{otp}</div>
+            </div>
+
+            {link_button}
+
+            <p style="text-align: center; color: #cbd5e1; font-size: 13px;">This code will expire in <strong>15 minutes</strong>.</p>
+            <p class="warning">If you did not request a password reset, you can safely ignore this email; your account remains secure.</p>
+
+            <div class="footer">
+              Snap2Learn AI • Academic Study Suite
+            </div>
+          </div>
+        </body>
+        </html>
+        """
+
+        payload = {
+            "sender": {
+                "name": settings.BREVO_SENDER_NAME,
+                "email": settings.BREVO_SENDER_EMAIL
+            },
+            "to": [
+                {
+                    "email": to_email,
+                    "name": student_name or to_email.split("@")[0]
+                }
+            ],
+            "subject": f"{otp} is your Snap2Learn AI Password Reset Code",
+            "htmlContent": html_content
+        }
+
+        headers = {
+            "api-key": settings.BREVO_API_KEY,
+            "Content-Type": "application/json",
+            "accept": "application/json"
+        }
+
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                response = client.post(BREVO_API_URL, json=payload, headers=headers)
+                if response.status_code in (200, 201, 202):
+                    logger.info(f"Brevo successfully delivered password reset email to {to_email}")
+                    return True
+                else:
+                    logger.error(f"Brevo API error ({response.status_code}): {response.text}")
+                    return False
+        except Exception as e:
+            logger.error(f"Failed to deliver Brevo password reset email to {to_email}: {e}")
+            return False
+
     def send_study_report_email(
         self,
         to_email: str,

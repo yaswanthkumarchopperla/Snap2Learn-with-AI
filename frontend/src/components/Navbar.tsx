@@ -81,7 +81,7 @@ export const Navbar: React.FC = () => {
               to="/auth"
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-white text-xs font-semibold shadow-md glow-primary hover:bg-primary-hover transition-all"
             >
-              <span>Sign In / Demo</span>
+              <span>Sign In / Register</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           ) : null}

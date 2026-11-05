@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { BookOpen, Sparkles, Mail, User, ArrowRight, KeyRound, CheckCircle2, RefreshCw, ChevronLeft } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { BookOpen, Sparkles, Mail, User, ArrowRight, KeyRound, CheckCircle2, RefreshCw, ChevronLeft, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export const AuthPage: React.FC = () => {
   const navigate = useNavigate();
-  const { sendOtp, verifyOtp, loginAsGuest, isLoading } = useAuth();
+  const location = useLocation();
+  const { user, sendOtp, verifyOtp, isLoading } = useAuth();
 
   const [step, setStep] = useState<'email' | 'otp'>('email');
   const [email, setEmail] = useState('');
@@ -14,22 +15,31 @@ export const AuthPage: React.FC = () => {
   const [infoMsg, setInfoMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // If already authenticated with a valid non-guest session, immediately redirect to destination or dashboard
+  useEffect(() => {
+    if (user && !user.isGuest) {
+      const destination = (location.state as any)?.from?.pathname || '/dashboard';
+      navigate(destination, { replace: true });
+    }
+  }, [user, navigate, location]);
+
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
     setInfoMsg(null);
 
-    if (!email || !email.includes('@')) {
-      setErrorMsg('Please enter a valid student email address.');
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
+      setErrorMsg('Please enter a valid student email address (e.g. name@college.edu).');
       return;
     }
 
     try {
-      const msg = await sendOtp(email, name);
-      setInfoMsg(msg || `Verification code sent to ${email}`);
+      const msg = await sendOtp(cleanEmail, name.trim() || undefined);
+      setInfoMsg(msg || `A 6-digit verification code has been dispatched to ${cleanEmail}`);
       setStep('otp');
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to dispatch verification code via Brevo.');
+      setErrorMsg(err.message || 'Failed to dispatch verification code via Brevo. Please check your email and network.');
     }
   };
 
@@ -38,16 +48,18 @@ export const AuthPage: React.FC = () => {
     setErrorMsg(null);
     setInfoMsg(null);
 
-    if (!otp || otp.trim().length !== 6) {
-      setErrorMsg('Please enter the complete 6-digit OTP code.');
+    const cleanOtp = otp.trim();
+    if (!cleanOtp || cleanOtp.length !== 6) {
+      setErrorMsg('Please enter the full 6-digit verification code from your email.');
       return;
     }
 
     try {
-      await verifyOtp(email, otp.trim(), name);
-      navigate('/dashboard');
+      await verifyOtp(email.trim().toLowerCase(), cleanOtp, name.trim() || undefined);
+      const destination = (location.state as any)?.from?.pathname || '/dashboard';
+      navigate(destination, { replace: true });
     } catch (err: any) {
-      setErrorMsg(err.message || 'Invalid or expired OTP code.');
+      setErrorMsg(err.message || 'Invalid or expired verification code. Please request a new OTP.');
     }
   };
 
@@ -55,16 +67,11 @@ export const AuthPage: React.FC = () => {
     setErrorMsg(null);
     setInfoMsg(null);
     try {
-      const msg = await sendOtp(email, name);
-      setInfoMsg(msg || `New code sent to ${email}`);
+      const msg = await sendOtp(email.trim().toLowerCase(), name.trim() || undefined);
+      setInfoMsg(msg || `New 6-digit code dispatched to ${email}`);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to resend code.');
+      setErrorMsg(err.message || 'Failed to resend code. Please try again.');
     }
-  };
-
-  const handleGuestEntry = async () => {
-    await loginAsGuest();
-    navigate('/dashboard');
   };
 
   return (
@@ -88,16 +95,16 @@ export const AuthPage: React.FC = () => {
         {/* Step Indicator Header */}
         <div className="mb-6 text-center">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary-light text-[11px] font-medium mb-2">
-            <Sparkles className="w-3.5 h-3.5 text-secondary" />
-            <span>Brevo Email OTP Authentication</span>
+            <ShieldCheck className="w-3.5 h-3.5 text-secondary" />
+            <span>Secure Email OTP Verification</span>
           </div>
           <h2 className="text-xl font-bold text-foreground">
-            {step === 'email' ? 'Sign In / Register' : 'Enter 6-Digit Code'}
+            {step === 'email' ? 'Sign In or Register' : 'Check Your Inbox'}
           </h2>
-          <p className="text-xs text-foreground-muted mt-1">
+          <p className="text-xs text-foreground-muted mt-1 leading-relaxed">
             {step === 'email'
-              ? 'Passwordless login verified via your student email'
-              : `Check your inbox at ${email}`}
+              ? 'Enter your student email. We will send a secure 6-digit verification code directly to your inbox.'
+              : `A one-time code was sent to ${email}. Valid for 10 minutes.`}
           </p>
         </div>
 
@@ -118,7 +125,7 @@ export const AuthPage: React.FC = () => {
           <form onSubmit={handleSendOtp} className="space-y-4">
             <div>
               <label className="block text-xs font-medium text-foreground-muted mb-1.5">
-                Full Name (Optional)
+                Full Name (For New Students)
               </label>
               <div className="relative">
                 <User className="w-4 h-4 text-foreground-muted absolute left-3 top-1/2 -translate-y-1/2" />
@@ -134,7 +141,7 @@ export const AuthPage: React.FC = () => {
 
             <div>
               <label className="block text-xs font-medium text-foreground-muted mb-1.5">
-                Student Email Address
+                Student Email Address <span className="text-secondary">*</span>
               </label>
               <div className="relative">
                 <Mail className="w-4 h-4 text-foreground-muted absolute left-3 top-1/2 -translate-y-1/2" />
@@ -147,12 +154,15 @@ export const AuthPage: React.FC = () => {
                   className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-surface border border-border text-foreground text-xs focus:outline-none focus:border-secondary"
                 />
               </div>
+              <p className="text-[10px] text-foreground-muted mt-1">
+                New accounts are created automatically upon OTP verification.
+              </p>
             </div>
 
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3 rounded-xl bg-primary text-white text-xs font-semibold shadow-md glow-primary hover:bg-primary-hover transition-all flex items-center justify-center gap-2 mt-2 cursor-pointer disabled:opacity-50"
+              className="w-full py-3 rounded-xl bg-primary text-white text-xs font-semibold shadow-md glow-primary hover:bg-primary-hover transition-all flex items-center justify-center gap-2 mt-4 cursor-pointer disabled:opacity-50"
             >
               {isLoading ? (
                 <>
@@ -166,12 +176,27 @@ export const AuthPage: React.FC = () => {
                 </>
               )}
             </button>
+
+            <div className="flex items-center justify-between pt-2">
+              <Link
+                to="/reset-password"
+                className="text-[11px] text-secondary hover:underline cursor-pointer font-medium"
+              >
+                Forgot Password?
+              </Link>
+              <Link
+                to="/reset-password"
+                className="text-[11px] text-foreground-muted hover:text-foreground cursor-pointer"
+              >
+                Reset via Email Link & OTP
+              </Link>
+            </div>
           </form>
         ) : (
           <form onSubmit={handleVerifyOtp} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-foreground-muted mb-1.5">
-                6-Digit One-Time Password
+              <label className="block text-xs font-medium text-foreground-muted mb-1.5 text-center">
+                Enter the 6-Digit Code
               </label>
               <div className="relative">
                 <KeyRound className="w-4 h-4 text-foreground-muted absolute left-3 top-1/2 -translate-y-1/2" />
@@ -200,7 +225,7 @@ export const AuthPage: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <span>Verify & Enter Workspace</span>
+                  <span>Verify OTP & Enter Workspace</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
@@ -209,8 +234,12 @@ export const AuthPage: React.FC = () => {
             <div className="flex items-center justify-between pt-2">
               <button
                 type="button"
-                onClick={() => setStep('email')}
-                className="text-[11px] text-foreground-muted hover:text-foreground flex items-center gap-1"
+                onClick={() => {
+                  setStep('email');
+                  setOtp('');
+                  setErrorMsg(null);
+                }}
+                className="text-[11px] text-foreground-muted hover:text-foreground flex items-center gap-1 cursor-pointer"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
                 <span>Change Email</span>
@@ -220,7 +249,7 @@ export const AuthPage: React.FC = () => {
                 type="button"
                 onClick={handleResend}
                 disabled={isLoading}
-                className="text-[11px] text-secondary hover:underline cursor-pointer"
+                className="text-[11px] text-secondary hover:underline cursor-pointer disabled:opacity-50"
               >
                 Resend Code
               </button>
@@ -228,31 +257,16 @@ export const AuthPage: React.FC = () => {
           </form>
         )}
 
-        <div className="relative my-6 text-center">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-border" />
-          </div>
-          <span className="relative px-3 bg-surface text-[10px] uppercase font-semibold text-foreground-muted tracking-wider">
-            Or Quick Access
-          </span>
+        <div className="mt-6 pt-4 border-t border-border text-center">
+          <p className="text-[11px] text-foreground-muted flex items-center justify-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-secondary" />
+            <span>Protected by Brevo Transactional Email & MongoDB Atlas</span>
+          </p>
         </div>
-
-        {/* Guest Demo Mode Button */}
-        <button
-          type="button"
-          onClick={handleGuestEntry}
-          className="w-full py-2.5 rounded-xl bg-surface-elevated border border-border hover:border-secondary/40 text-foreground text-xs font-semibold hover:bg-surface-hover transition-all flex items-center justify-center gap-2 cursor-pointer"
-        >
-          <Sparkles className="w-4 h-4 text-secondary" />
-          <span>Continue as Guest (Demo Mode)</span>
-        </button>
-        <p className="text-[10px] text-center text-foreground-muted mt-2">
-          Explore all features immediately with MongoDB storage and pre-loaded sample notes.
-        </p>
       </div>
 
       <p className="text-xs text-foreground-muted mt-6">
-        First-Year CSE-AIML College Study Suite • Powered by Brevo & MongoDB Atlas
+        First-Year CSE-AIML College Study Suite
       </p>
     </div>
   );
