@@ -116,3 +116,4 @@
   transform-origin: left center;
   transform: translateY(-50%) scaleX(calc(0.7 + var(--effect, 0) * 0.6));
 }
+
