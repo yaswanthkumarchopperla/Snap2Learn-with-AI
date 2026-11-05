@@ -74,6 +74,8 @@ export interface QuizGenerateResponse {
   total_questions: number;
   questions: QuestionClientView[];
   is_demo: boolean;
+  is_fresh_retake?: boolean;
+  notice?: string;
 }
 
 export interface QuestionReview {
@@ -89,6 +91,7 @@ export interface QuestionReview {
 
 export interface QuizSubmitResponse {
   quiz_id: string;
+  attempt_id?: string;
   total_questions: number;
   correct_count: number;
   score_percentage: number;

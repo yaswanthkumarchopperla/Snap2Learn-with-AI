@@ -347,14 +347,14 @@ export const ExplainPage: React.FC = () => {
                 </h3>
                 <div className="space-y-3">
                   {explanation.formulas.map((item, idx) => (
-                    <div key={idx} className="p-3 rounded-xl bg-surface border border-border">
+                    <div key={idx} className="p-3.5 rounded-xl bg-surface border border-border">
                       <span className="font-semibold text-xs text-foreground block mb-1.5">{item.name}</span>
-                      <div className="p-2.5 rounded-lg bg-black/40 border border-border text-center text-xs text-secondary my-1">
-                        <MathRenderer content={`$$${item.latex}$$`} />
+                      <div className="p-2.5 rounded-lg bg-black/40 border border-border text-center text-xs text-secondary my-1.5 overflow-x-auto">
+                        <MathRenderer content={item.latex} block />
                       </div>
-                      <p className="text-[11px] text-foreground-muted mt-1 leading-relaxed">
-                        {item.explanation}
-                      </p>
+                      <div className="text-[11px] text-foreground-muted mt-1.5 leading-relaxed">
+                        <MathRenderer content={item.explanation} />
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -382,13 +382,19 @@ export const ExplainPage: React.FC = () => {
                 </h3>
                 <div className="space-y-3 mt-3">
                   {explanation.common_mistakes.map((m, idx) => (
-                    <div key={idx} className="p-2.5 rounded-lg bg-surface border border-border text-xs">
-                      <p className="text-red-400 font-medium line-through mb-1">
-                        ✗ {m.mistake}
-                      </p>
-                      <p className="text-emerald-400 font-medium">
-                        ✓ {m.correction}
-                      </p>
+                    <div key={idx} className="p-3 rounded-lg bg-surface border border-border text-xs space-y-1.5">
+                      <div className="text-red-400 font-medium line-through flex items-start gap-1.5">
+                        <span className="shrink-0">✗</span>
+                        <div className="flex-1">
+                          <MathRenderer content={m.mistake} />
+                        </div>
+                      </div>
+                      <div className="text-emerald-400 font-medium flex items-start gap-1.5">
+                        <span className="shrink-0">✓</span>
+                        <div className="flex-1">
+                          <MathRenderer content={m.correction} />
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -413,8 +419,8 @@ export const ExplainPage: React.FC = () => {
                 </button>
               </div>
 
-              <div className="p-4 rounded-xl bg-surface border border-border text-xs sm:text-sm text-foreground-muted whitespace-pre-wrap leading-relaxed font-mono">
-                {explanation.exam_answer}
+              <div className="p-4 sm:p-5 rounded-xl bg-surface border border-border text-xs sm:text-sm text-foreground leading-relaxed">
+                <MathRenderer content={explanation.exam_answer} />
               </div>
             </div>
 

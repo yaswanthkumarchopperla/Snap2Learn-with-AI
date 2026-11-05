@@ -180,7 +180,7 @@ export const ChatPage: React.FC = () => {
                     : 'glass-card text-foreground rounded-tl-none border border-border'
                 }`}
               >
-                <div className="whitespace-pre-wrap">
+                <div className="overflow-x-auto">
                   <MathRenderer content={msg.content} />
                 </div>
 

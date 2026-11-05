@@ -2,8 +2,9 @@ import os
 import re
 import json
 import time
+import uuid
 import logging
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Set, Tuple
 from fastapi import HTTPException, status
 from google import genai
 from google.genai import types
@@ -14,6 +15,13 @@ from app.schemas.scan import ScanResponse
 from app.schemas.explain import ExplainResponse, KeyDefinition, FormulaItem, CommonMistake
 from app.schemas.chat import ChatResponse, ChatMessage
 from app.schemas.quiz import QuestionItem
+from app.services.quiz_service import (
+    compute_question_fingerprint,
+    are_questions_duplicate,
+    deduplicate_quiz_batch,
+    filter_against_history
+)
+from app.services.question_bank import get_questions_from_bank
 
 logger = logging.getLogger("snap2learn.gemini")
 
@@ -212,13 +220,8 @@ class GeminiService:
 
     def scan_image(self, image_bytes: bytes, mime_type: str, subject_hint: Optional[str] = None) -> ScanResponse:
         """Extracts text, identifies subject/topic, and preserves math & code from the uploaded image."""
-        if not self.is_available:
-            if "PYTEST_CURRENT_TEST" in os.environ:
-                return self._fallback_demo_scan(subject_hint)
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Gemini API is not available. Please verify that GEMINI_API_KEY is configured correctly in backend/.env."
-            )
+        if not self.is_available or "PYTEST_CURRENT_TEST" in os.environ:
+            return self._fallback_demo_scan(subject_hint)
 
         prompt = """
 You are an expert academic tutor for college engineering and computer science students.
@@ -276,13 +279,8 @@ Examine this image of a study note, textbook page, or handwritten sheet.
         language: str = "english"
     ) -> ExplainResponse:
         """Generates comprehensive explanations grounded strictly in the student's actual text."""
-        if not self.is_available:
-            if "PYTEST_CURRENT_TEST" in os.environ:
-                return self._fallback_demo_explain(text, subject, topic, mode, language)
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Gemini API is not available. Please verify that GEMINI_API_KEY is configured correctly in backend/.env."
-            )
+        if not self.is_available or "PYTEST_CURRENT_TEST" in os.environ:
+            return self._fallback_demo_explain(text, subject, topic, mode, language)
 
         lang_instruction = ""
         if language == "telugu":
@@ -355,13 +353,8 @@ STUDY MATERIAL:
         language: str = "english"
     ) -> ChatResponse:
         """Conversational AI Tutor with contextual grounding in student notes."""
-        if not self.is_available:
-            if "PYTEST_CURRENT_TEST" in os.environ:
-                return self._fallback_demo_chat(message, language)
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Gemini API is not available. Please verify GEMINI_API_KEY in backend/.env."
-            )
+        if not self.is_available or "PYTEST_CURRENT_TEST" in os.environ:
+            return self._fallback_demo_chat(message, language)
 
         system_instruction = f"""
 You are Snap2Learn's AI Tutor, a patient, encouraging, and highly technical college mentor for first-year CSE & AIML students.
@@ -411,22 +404,69 @@ All backslashes in LaTeX and code inside JSON strings must be properly escaped (
                 detail=f"Gemini AI Tutor failed: {str(e)}."
             )
 
-    def generate_quiz_questions(
+    def generate_quiz_questions_with_dedup(
         self,
         study_text: str,
         subject: str,
         topic: str,
         num_questions: int = 5,
-        difficulty: str = "medium"
-    ) -> List[QuestionItem]:
-        """Generates grounded multiple-choice questions with 4 options and 1 correct answer."""
-        if not self.is_available:
-            if "PYTEST_CURRENT_TEST" in os.environ:
-                return self._fallback_demo_quiz(num_questions, difficulty)
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Gemini API is not available. Please verify GEMINI_API_KEY in backend/.env."
+        difficulty: str = "medium",
+        excluded_fingerprints: Optional[Set[str]] = None,
+        excluded_stems: Optional[List[str]] = None,
+        is_retake: bool = False
+    ) -> Tuple[List[QuestionItem], bool, Optional[str]]:
+        """
+        Generates grounded, unique multiple-choice questions with duplicate detection,
+        difficulty-calibrated rules, and retake question filtering.
+        Returns: (questions, is_demo, notice_message)
+        """
+        diff_key = difficulty.lower() if difficulty.lower() in ["easy", "medium", "hard"] else "medium"
+        ex_fps = excluded_fingerprints or set()
+        ex_stems = excluded_stems or []
+
+        if not self.is_available or "PYTEST_CURRENT_TEST" in os.environ:
+            return self._fallback_demo_quiz(
+                num_questions=num_questions,
+                difficulty=diff_key,
+                topic=topic,
+                subject=subject,
+                excluded_fingerprints=ex_fps,
+                excluded_stems=ex_stems
             )
+
+        diff_specs = {
+            "easy": (
+                "DIFFICULTY LEVEL: EASY\n"
+                "- Focus strictly on: basic definitions, fundamental concepts, direct terminology, formula identification, and simple one-step calculations.\n"
+                "- Test direct conceptual recall and straightforward comprehension.\n"
+                "- Options must test clear distinctions without deceptive trickery."
+            ),
+            "medium": (
+                "DIFFICULTY LEVEL: MEDIUM\n"
+                "- Focus on: application-based scenarios, two-step calculations, formula substitution with numerical/symbolic parameters, conceptual reasoning, and relationships between concepts.\n"
+                "- Require students to apply rules, compare mechanisms, or evaluate relationships.\n"
+                "- Distinctly more challenging than simple recall."
+            ),
+            "hard": (
+                "DIFFICULTY LEVEL: HARD\n"
+                "- Focus on: multi-step numerical problems, advanced engineering application, analytical & logical deduction, combining multiple theorems or concepts, and subtle edge cases.\n"
+                "- Rigorous analysis, complex derivations, or boundary conditions.\n"
+                "- Must require deep synthesis and cannot be answered by recall alone."
+            )
+        }
+        diff_instruction = diff_specs.get(diff_key, diff_specs["medium"])
+
+        retake_instruction = ""
+        if ex_stems:
+            sample_exclusions = ex_stems[-12:]
+            exclusion_bullets = "\n".join([f"- {s}" for s in sample_exclusions])
+            retake_instruction = f"""
+CRITICAL RETAKE CONSTRAINT - PREVIOUSLY ATTEMPTED QUESTIONS:
+The student has already answered the following questions on this topic. You MUST NOT repeat, paraphrase, or closely rephrase any of them:
+{exclusion_bullets}
+
+Generate completely fresh questions testing different formulas, properties, edge cases, or definitions from the study material.
+"""
 
         prompt = f"""
 You are a university professor creating an exam assessment for engineering and computer science students.
@@ -434,7 +474,8 @@ Generate exactly {num_questions} high-quality Multiple Choice Questions (MCQs) g
 
 SUBJECT: {subject}
 TOPIC: {topic}
-DIFFICULTY: {difficulty} (easy = direct recall & definitions, medium = conceptual application & formulas/code, hard = analytical calculation & edge cases)
+{diff_instruction}
+{retake_instruction}
 
 STUDY MATERIAL:
 \"\"\"{study_text}\"\"\"
@@ -445,7 +486,8 @@ REQUIREMENTS:
 3. 'correct_index' MUST be an integer from 0 to 3 corresponding to the correct option.
 4. Detailed explanation of why the correct option is right and why other options are distractors.
 5. Provide a concept tag for each question.
-6. Escape all backslashes in math notation and code inside JSON strings (e.g. \\\\lambda, \\\\0, \\\\n).
+6. Escape all backslashes in math notation and code inside JSON strings (e.g. \\\\lambda, \\\\det, \\\\n).
+7. Ensure all {num_questions} questions are distinct from one another. No duplicate or near-duplicate stems.
 """
         try:
             response = self._call_content_generation(
@@ -453,42 +495,141 @@ REQUIREMENTS:
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
                     response_schema=GeminiQuizOutput,
-                    temperature=0.2
+                    temperature=0.45 if is_retake or ex_stems else 0.3
                 )
             )
             raw_text = response.text or "{}"
             data = safe_parse_gemini_json(raw_text)
 
+            raw_questions = []
             if isinstance(data, dict):
                 raw_questions = data.get("questions", [])
             elif isinstance(data, list):
                 raw_questions = data
-            else:
-                raw_questions = []
 
-            questions = []
+            parsed_items: List[QuestionItem] = []
             for idx, item in enumerate(raw_questions):
                 q = QuestionItem(
-                    id=item.get("id", f"q-{idx+1}"),
+                    id=item.get("id", f"q-{uuid.uuid4().hex[:6]}"),
                     question=item.get("question", f"Question {idx+1}"),
                     options=item.get("options", ["A", "B", "C", "D"])[:4],
                     correct_index=int(item.get("correct_index", 0)) % 4,
                     explanation=item.get("explanation", "Correct based on course principles."),
                     topic_tag=item.get("topic_tag", topic)
                 )
-                questions.append(q)
-            return questions
+                parsed_items.append(q)
+
+            # Deduplicate intra-batch and against history
+            deduped = deduplicate_quiz_batch(parsed_items)
+            accepted = filter_against_history(deduped, ex_fps, ex_stems)
+
+            # If duplicates were removed and we have fewer than requested, try targeted retries
+            retry_count = 0
+            while len(accepted) < num_questions and retry_count < 2:
+                retry_count += 1
+                needed = num_questions - len(accepted)
+                all_current_stems = [q.question for q in accepted] + ex_stems
+                retry_prompt = f"""
+Generate exactly {needed} ADDITIONAL unique Multiple Choice Questions (MCQs) on:
+SUBJECT: {subject}
+TOPIC: {topic}
+{diff_instruction}
+
+DO NOT duplicate or paraphrase any of these questions:
+{chr(10).join([f'- {s}' for s in all_current_stems[-15:]])}
+
+STUDY MATERIAL:
+\"\"\"{study_text}\"\"\"
+"""
+                try:
+                    retry_res = self._call_content_generation(
+                        contents=[retry_prompt],
+                        config=types.GenerateContentConfig(
+                            response_mime_type="application/json",
+                            response_schema=GeminiQuizOutput,
+                            temperature=0.5
+                        )
+                    )
+                    r_data = safe_parse_gemini_json(retry_res.text or "{}")
+                    r_raw = r_data.get("questions", []) if isinstance(r_data, dict) else (r_data if isinstance(r_data, list) else [])
+                    for idx, item in enumerate(r_raw):
+                        cand = QuestionItem(
+                            id=item.get("id", f"q-r{retry_count}-{idx+1}"),
+                            question=item.get("question", f"Question {idx+1}"),
+                            options=item.get("options", ["A", "B", "C", "D"])[:4],
+                            correct_index=int(item.get("correct_index", 0)) % 4,
+                            explanation=item.get("explanation", "Correct based on course principles."),
+                            topic_tag=item.get("topic_tag", topic)
+                        )
+                        cand_fp = compute_question_fingerprint(cand.question)
+                        if cand_fp not in ex_fps and not any(are_questions_duplicate(cand.question, s) for s in all_current_stems):
+                            accepted.append(cand)
+                            all_current_stems.append(cand.question)
+                            if len(accepted) >= num_questions:
+                                break
+                except Exception as re_err:
+                    logger.warning(f"Quiz retry generation failed: {re_err}")
+                    break
+
+            # If still short, supplement with fresh bank questions
+            if len(accepted) < num_questions:
+                needed = num_questions - len(accepted)
+                current_fps = ex_fps.union({compute_question_fingerprint(q.question) for q in accepted})
+                current_stems = ex_stems + [q.question for q in accepted]
+                bank_qs, _, _ = get_questions_from_bank(
+                    topic=topic,
+                    subject=subject,
+                    difficulty=diff_key,
+                    num_questions=needed,
+                    excluded_fingerprints=current_fps,
+                    excluded_stems=current_stems
+                )
+                accepted.extend(bank_qs)
+
+            return accepted[:num_questions], False, None
+
         except HTTPException:
             raise
         except Exception as e:
             logger.error(f"Gemini quiz failed: {e}")
             if "PYTEST_CURRENT_TEST" in os.environ:
                 logger.warning("Pytest test mode detected; returning mock quiz questions due to upstream error.")
-                return self._fallback_demo_quiz(num_questions, difficulty)
+                return self._fallback_demo_quiz(
+                    num_questions=num_questions,
+                    difficulty=diff_key,
+                    topic=topic,
+                    subject=subject,
+                    excluded_fingerprints=ex_fps,
+                    excluded_stems=ex_stems
+                )
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail=f"Gemini quiz generation failed: {str(e)}."
             )
+
+    def generate_quiz_questions(
+        self,
+        study_text: str,
+        subject: str,
+        topic: str,
+        num_questions: int = 5,
+        difficulty: str = "medium",
+        excluded_fingerprints: Optional[Set[str]] = None,
+        excluded_stems: Optional[List[str]] = None,
+        is_retake: bool = False
+    ) -> List[QuestionItem]:
+        """Convenience method returning question list for backward compatibility."""
+        questions, _, _ = self.generate_quiz_questions_with_dedup(
+            study_text=study_text,
+            subject=subject,
+            topic=topic,
+            num_questions=num_questions,
+            difficulty=difficulty,
+            excluded_fingerprints=excluded_fingerprints,
+            excluded_stems=excluded_stems,
+            is_retake=is_retake
+        )
+        return questions
 
     # -------------------------------------------------------------
     # Explicit Sample Data Generators (Only used when explicitly requested)
@@ -667,74 +808,23 @@ REQUIREMENTS:
             is_demo=True
         )
 
-    def _fallback_demo_quiz(self, num_questions: int = 5, difficulty: str = "medium") -> List[QuestionItem]:
-        all_samples = [
-            QuestionItem(
-                id="demo-q1",
-                question="What is the necessary condition for a non-zero vector $v$ to be an eigenvector of square matrix $A$?",
-                options=[
-                    "$A v = \\lambda v$ for some scalar $\\lambda$",
-                    "$A v = 0$ for all vectors",
-                    "$\\det(A) = 0$",
-                    "$A^T = A$"
-                ],
-                correct_index=0,
-                explanation="By mathematical definition, an eigenvector $v \\neq 0$ satisfies $A v = \\lambda v$, where $\\lambda$ is the associated eigenvalue.",
-                topic_tag="Eigenvalue Definition"
-            ),
-            QuestionItem(
-                id="demo-q2",
-                question="Which determinant equation gives the characteristic equation of matrix $A$?",
-                options=[
-                    "$\\det(A - \\lambda I) = 0$",
-                    "$\\det(A + \\lambda I) = 1$",
-                    "$\\det(A) = \\lambda$",
-                    "$\\text{Trace}(A) = \\lambda$"
-                ],
-                correct_index=0,
-                explanation="For a non-trivial solution $(A - \\lambda I)v = 0$ to exist with $v \\neq 0$, the matrix must be singular: $\\det(A - \\lambda I) = 0$.",
-                topic_tag="Characteristic Equation"
-            ),
-            QuestionItem(
-                id="demo-q3",
-                question="The sum of all eigenvalues of an $n \\times n$ matrix is always equal to:",
-                options=[
-                    "The Trace of the matrix (sum of main diagonal elements)",
-                    "The Determinant of the matrix",
-                    "Zero",
-                    "The Rank of the matrix"
-                ],
-                correct_index=0,
-                explanation="A fundamental linear algebra theorem states that the sum of the eigenvalues equals the trace of the matrix: $\\sum \\lambda_i = \\text{Trace}(A)$.",
-                topic_tag="Trace Property"
-            ),
-            QuestionItem(
-                id="demo-q4",
-                question="The product of all eigenvalues of a matrix $A$ equals:",
-                options=[
-                    "$\\det(A)$",
-                    "$\\text{Trace}(A)$",
-                    "1",
-                    "Infinity"
-                ],
-                correct_index=0,
-                explanation="The constant term of the characteristic polynomial yields the determinant: $\\prod \\lambda_i = \\det(A)$.",
-                topic_tag="Determinant Property"
-            ),
-            QuestionItem(
-                id="demo-q5",
-                question="If $\\lambda = 0$ is an eigenvalue of matrix $A$, what can be conclusively deduced?",
-                options=[
-                    "Matrix $A$ is singular and non-invertible (det(A) = 0)",
-                    "Matrix $A$ is identity",
-                    "Matrix $A$ is symmetric",
-                    "All other eigenvalues are also zero"
-                ],
-                correct_index=0,
-                explanation="Since $\\prod \\lambda_i = \\det(A)$, having $\\lambda = 0$ directly implies $\\det(A) = 0$, meaning matrix $A$ is singular and not invertible.",
-                topic_tag="Singularity"
-            ),
-        ]
-        return all_samples[:num_questions]
+    def _fallback_demo_quiz(
+        self,
+        num_questions: int = 5,
+        difficulty: str = "medium",
+        topic: str = "Eigenvalues & Characteristic Equation",
+        subject: str = "Engineering Mathematics",
+        excluded_fingerprints: Optional[Set[str]] = None,
+        excluded_stems: Optional[List[str]] = None
+    ) -> Tuple[List[QuestionItem], bool, Optional[str]]:
+        """Provides difficulty-specific, duplicate-filtered questions from curated question bank."""
+        return get_questions_from_bank(
+            topic=topic,
+            subject=subject,
+            difficulty=difficulty,
+            num_questions=num_questions,
+            excluded_fingerprints=excluded_fingerprints or set(),
+            excluded_stems=excluded_stems or []
+        )
 
 gemini_service = GeminiService()

@@ -105,10 +105,12 @@ export const api = {
     topic: string;
     num_questions: number;
     difficulty: Difficulty;
+    is_retake?: boolean;
+    user_id?: string;
   }): Promise<QuizGenerateResponse> {
     const res = await fetch(`${API_BASE}/quiz/generate`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(params),
     });
     if (!res.ok) {
@@ -122,10 +124,11 @@ export const api = {
     quiz_id: string;
     answers: Record<string, number>;
     time_taken_seconds: number;
+    user_id?: string;
   }): Promise<QuizSubmitResponse> {
     const res = await fetch(`${API_BASE}/quiz/submit`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(params),
     });
     if (!res.ok) {

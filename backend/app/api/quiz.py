@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime, timezone
-from fastapi import APIRouter, HTTPException, status
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Depends, status
 from app.schemas.quiz import (
     QuizGenerateRequest,
     QuizGenerateResponse,
@@ -9,16 +10,21 @@ from app.schemas.quiz import (
     QuestionClientView,
     QuestionReview
 )
+from app.api.auth import AuthUserResponse, get_optional_current_user
 from app.services.gemini_service import gemini_service
 from app.services.storage_service import store
 
 router = APIRouter(prefix="/quiz", tags=["Quiz Arena"])
 
 @router.post("/generate", response_model=QuizGenerateResponse)
-def generate_quiz(request: QuizGenerateRequest):
+def generate_quiz(
+    request: QuizGenerateRequest,
+    user: Optional[AuthUserResponse] = Depends(get_optional_current_user)
+):
     """
     Generates high-quality MCQ quiz questions from confirmed study notes.
     Stores the answer key securely on the backend so client cannot inspect correct answers beforehand.
+    Prevents duplicates within the quiz and guarantees fresh questions on retakes.
     """
     if len(request.study_text.strip()) < 10:
         raise HTTPException(
@@ -26,13 +32,23 @@ def generate_quiz(request: QuizGenerateRequest):
             detail="Study text must contain at least 10 characters to generate a meaningful quiz."
         )
 
-    # 1. Generate questions
-    questions = gemini_service.generate_quiz_questions(
+    # 1. Resolve student identity for partitioned history tracking
+    student_id = user.id if user else (request.user_id or "guest_student")
+
+    # 2. Retrieve student's attempted question fingerprints and stems on this topic
+    attempted_fps = store.get_user_attempted_fingerprints(student_id, request.topic)
+    attempted_stems = store.get_user_attempted_question_stems(student_id, request.topic)
+
+    # 3. Generate questions with duplicate detection & retake exclusion
+    questions, is_demo, notice = gemini_service.generate_quiz_questions_with_dedup(
         study_text=request.study_text,
         subject=request.subject,
         topic=request.topic,
         num_questions=request.num_questions,
-        difficulty=request.difficulty
+        difficulty=request.difficulty,
+        excluded_fingerprints=attempted_fps,
+        excluded_stems=attempted_stems,
+        is_retake=request.is_retake
     )
 
     if not questions:
@@ -41,7 +57,7 @@ def generate_quiz(request: QuizGenerateRequest):
             detail="Could not generate quiz questions from provided text."
         )
 
-    # 2. Assign unique ID and store on server
+    # 4. Assign unique ID and store on server
     quiz_id = f"quiz-{uuid.uuid4().hex[:10]}"
     title = f"{request.topic} - {request.difficulty.capitalize()} Assessment"
 
@@ -54,7 +70,7 @@ def generate_quiz(request: QuizGenerateRequest):
         questions=questions
     )
 
-    # 3. Strip correct_index and explanation for client integrity
+    # 5. Strip correct_index and explanation for client integrity
     client_questions = [
         QuestionClientView(
             id=q.id,
@@ -73,13 +89,19 @@ def generate_quiz(request: QuizGenerateRequest):
         difficulty=request.difficulty,
         total_questions=len(client_questions),
         questions=client_questions,
-        is_demo=not gemini_service.is_available
+        is_demo=is_demo,
+        is_fresh_retake=True,
+        notice=notice
     )
 
 @router.post("/submit", response_model=QuizSubmitResponse)
-def submit_quiz(request: QuizSubmitRequest):
+def submit_quiz(
+    request: QuizSubmitRequest,
+    user: Optional[AuthUserResponse] = Depends(get_optional_current_user)
+):
     """
-    Deterministically computes score on backend, analyzes mistakes, and records attempt into analytics.
+    Deterministically computes score on backend, records individual attempt into analytics,
+    and updates student question history to guarantee fresh questions on retakes.
     """
     quiz_data = store.get_quiz(request.quiz_id)
     if not quiz_data:
@@ -87,6 +109,9 @@ def submit_quiz(request: QuizSubmitRequest):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Quiz session '{request.quiz_id}' not found or expired."
         )
+
+    student_id = user.id if user else (request.user_id or quiz_data.get("user_id", "guest_student"))
+    attempt_id = f"att-{uuid.uuid4().hex[:10]}"
 
     questions = quiz_data["questions"]
     total_questions = len(questions)
@@ -128,11 +153,14 @@ def submit_quiz(request: QuizSubmitRequest):
     else:
         revision_rec = "Outstanding performance! You have mastered all concepts in this set."
 
-    # Record into student analytics
+    # Record into student analytics - saves new attempt separately without overwriting previous scores
     store.record_attempt({
+        "attempt_id": attempt_id,
         "quiz_id": request.quiz_id,
+        "user_id": student_id,
         "subject": quiz_data["subject"],
         "topic": quiz_data["topic"],
+        "difficulty": quiz_data.get("difficulty", "medium"),
         "total_questions": total_questions,
         "correct_count": correct_count,
         "score_percentage": score_pct,
@@ -142,8 +170,20 @@ def submit_quiz(request: QuizSubmitRequest):
         "timestamp": datetime.now(timezone.utc).isoformat()
     })
 
+    # Record question history for duplicate detection and retake filtering
+    store.record_question_history(
+        user_id=student_id,
+        quiz_id=request.quiz_id,
+        topic=quiz_data["topic"],
+        subject=quiz_data["subject"],
+        difficulty=quiz_data.get("difficulty", "medium"),
+        questions=question_reviews,
+        score_percentage=score_pct
+    )
+
     return QuizSubmitResponse(
         quiz_id=request.quiz_id,
+        attempt_id=attempt_id,
         total_questions=total_questions,
         correct_count=correct_count,
         score_percentage=score_pct,

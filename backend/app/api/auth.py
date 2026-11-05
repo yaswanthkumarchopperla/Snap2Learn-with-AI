@@ -236,6 +236,26 @@ def get_current_user(authorization: Optional[str] = Header(None)):
     )
 
 
+def get_optional_current_user(authorization: Optional[str] = Header(None)) -> Optional[AuthUserResponse]:
+    """Optionally returns authenticated user profile, or None if unauthenticated."""
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    try:
+        token = authorization.split(" ")[1]
+        payload = decode_token(token)
+        if not payload:
+            return None
+        return AuthUserResponse(
+            id=payload.get("sub", "guest"),
+            email=payload.get("email", ""),
+            name=payload.get("name", "Student"),
+            college_branch="CSE (AI & ML)",
+            is_guest=payload.get("is_guest", False)
+        )
+    except Exception:
+        return None
+
+
 @router.post("/forgot-password")
 def forgot_password(request: ForgotPasswordRequest, raw_req: Request):
     """Sends a 6-digit password reset OTP and direct link to the user's email via Brevo."""

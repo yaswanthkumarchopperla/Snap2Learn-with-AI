@@ -160,8 +160,8 @@ export const FlashcardsPage: React.FC = () => {
                       <MathRenderer content={currentCard?.back_answer || ''} />
                     </p>
                     {currentCard?.formula_or_code && (
-                      <div className="p-3 rounded-xl bg-black/40 border border-border inline-block text-xs font-mono text-secondary">
-                        <MathRenderer content={`$$${currentCard.formula_or_code}$$`} />
+                      <div className="p-3 rounded-xl bg-black/40 border border-border inline-block text-xs text-secondary max-w-full overflow-x-auto">
+                        <MathRenderer content={currentCard.formula_or_code} block />
                       </div>
                     )}
                   </div>

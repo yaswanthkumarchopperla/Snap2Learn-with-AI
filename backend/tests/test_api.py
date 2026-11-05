@@ -303,3 +303,41 @@ def test_auth_guest_and_otp_flow():
     assert bad_res.status_code == 400
 
 
+def test_mathematical_ac_circuit_formulas_and_telugu_rendering():
+    """Validates the 6 specific mathematical expressions requested by user:
+    1. V = 100 sin(314t)
+    2. omega = 314 rad/s
+    3. f = omega / (2 pi) = 50 Hz
+    4. T = 1 / f = 0.02 s
+    5. V_rms = V_m / sqrt(2) = 70.7 V
+    6. V_avg = 2 V_m / pi = 63.66 V
+    """
+    raw_json = r'''{
+        "short_summary": "In alternating current (AC) analysis, the sinusoidal voltage is $V = 100 \\sin(314t)$.",
+        "detailed_steps": [
+            "Step 1: Identify peak voltage $V_m = 100\\text{ V}$ and angular frequency $\\omega = 314\\text{ rad/s}$.",
+            "Step 2: Calculate frequency $f = \\frac{\\omega}{2\\pi} = 50\\text{ Hz}$.",
+            "Step 3: Determine time period $T = \\frac{1}{f} = 0.02\\text{ s}$.",
+            "Step 4: Compute RMS voltage $V_{\\text{rms}} = \\frac{V_m}{\\sqrt{2}} = 70.7\\text{ V}$.",
+            "Step 5: Compute average voltage $V_{\\text{avg}} = \\frac{2V_m}{\\pi} = 63.66\\text{ V}$."
+        ],
+        "formulas": [
+            {"name": "Instantaneous Voltage", "latex": "V = 100 \\sin(314t)", "explanation": "Voltage at any time t."},
+            {"name": "Angular Frequency", "latex": "\\omega = 314\\text{ rad/s}", "explanation": "Rate of change of phase."},
+            {"name": "Frequency", "latex": "f = \\frac{\\omega}{2\\pi} = 50\\text{ Hz}", "explanation": "Cycles per second."},
+            {"name": "Time Period", "latex": "T = \\frac{1}{f} = 0.02\\text{ s}", "explanation": "Duration of one complete cycle."},
+            {"name": "RMS Voltage", "latex": "V_{\\text{rms}} = \\frac{V_m}{\\sqrt{2}} = 70.7\\text{ V}", "explanation": "Root mean square value."},
+            {"name": "Average Voltage", "latex": "V_{\\text{avg}} = \\frac{2V_m}{\\pi} = 63.66\\text{ V}", "explanation": "Half-cycle average."}
+        ],
+        "exam_answer": "\\boxed{V_{\\text{avg}} = 63.66\\text{ V}}\\n\\nHere $\\omega = 314\\text{ rad/s}$ and $f = 50\\text{ Hz}$.",
+        "telugu_summary": "కోణీయ పౌనఃపున్యం \\omega = 314 \\text{ rad/s} మరియు సగటు వోల్టేజ్ $V_{\\text{avg}} = 63.66\\text{ V}$."
+    }'''
+    parsed = safe_parse_gemini_json(raw_json)
+    assert r"\omega" in parsed["formulas"][1]["latex"]
+    assert r"\frac{\omega}{2\pi}" in parsed["formulas"][2]["latex"]
+    assert r"\sqrt{2}" in parsed["formulas"][4]["latex"]
+    assert r"\boxed" in parsed["exam_answer"]
+    assert "కోణీయ పౌనఃపున్యం" in parsed["telugu_summary"]
+
+
+

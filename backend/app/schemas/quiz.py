@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Literal
+from typing import Literal, Optional
 
 DifficultyLevel = Literal["easy", "medium", "hard"]
 
@@ -23,6 +23,8 @@ class QuizGenerateRequest(BaseModel):
     topic: str = Field("Core Concepts", description="Topic title")
     num_questions: int = Field(5, ge=3, le=15, description="Number of questions: 5, 10, or 15")
     difficulty: DifficultyLevel = Field("medium", description="easy, medium, or hard")
+    is_retake: bool = Field(False, description="Flag indicating if this is a retake of a previous quiz")
+    user_id: Optional[str] = Field(None, description="Optional student user ID for tracking")
 
 class QuizGenerateResponse(BaseModel):
     quiz_id: str
@@ -33,11 +35,14 @@ class QuizGenerateResponse(BaseModel):
     total_questions: int
     questions: list[QuestionClientView]
     is_demo: bool = False
+    is_fresh_retake: bool = True
+    notice: Optional[str] = None
 
 class QuizSubmitRequest(BaseModel):
     quiz_id: str
     answers: dict[str, int] = Field(..., description="Map of question_id to selected option index (0-3)")
     time_taken_seconds: int = Field(0, ge=0)
+    user_id: Optional[str] = Field(None, description="Optional student user ID for tracking")
 
 class QuestionReview(BaseModel):
     id: str
@@ -51,6 +56,7 @@ class QuestionReview(BaseModel):
 
 class QuizSubmitResponse(BaseModel):
     quiz_id: str
+    attempt_id: str = Field("", description="Unique attempt ID for this submission")
     total_questions: int
     correct_count: int
     score_percentage: float

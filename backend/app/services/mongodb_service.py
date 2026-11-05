@@ -60,6 +60,8 @@ class MongoDBService:
             self._db.flashcards.create_index([("user_id", ASCENDING), ("subject", ASCENDING)])
             self._db.quizzes.create_index([("quiz_id", ASCENDING)], unique=True)
             self._db.attempts.create_index([("user_id", ASCENDING), ("timestamp", ASCENDING)])
+            self._db.question_history.create_index([("user_id", ASCENDING), ("topic", ASCENDING), ("created_at", ASCENDING)])
+            self._db.question_history.create_index([("user_id", ASCENDING), ("fingerprint", ASCENDING)])
 
             # Seed sample notes if empty
             if self._db.notes.count_documents({}) == 0:
@@ -410,6 +412,84 @@ class MongoDBService:
             if "timestamp" not in attempt_copy:
                 attempt_copy["timestamp"] = datetime.now(timezone.utc).isoformat()
             self._db.attempts.insert_one(attempt_copy)
+
+    def get_attempts(self, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        if not self.is_connected or self._db is None:
+            return []
+        query: Dict[str, Any] = {}
+        if user_id:
+            query["$or"] = [{"user_id": user_id}, {"user_id": "guest_student"}]
+        cursor = self._db.attempts.find(query).sort("timestamp", -1)
+        res = []
+        for doc in cursor:
+            doc.pop("_id", None)
+            res.append(doc)
+        return res
+
+    def record_question_history(
+        self,
+        user_id: str,
+        quiz_id: str,
+        topic: str,
+        subject: str,
+        difficulty: str,
+        questions: List[Any],
+        score_percentage: float
+    ):
+        if not self.is_connected or self._db is None:
+            return
+        from app.services.quiz_service import compute_question_fingerprint
+        now_iso = datetime.now(timezone.utc).isoformat()
+        docs = []
+        for q in questions:
+            q_text = q.get("question", "") if isinstance(q, dict) else getattr(q, "question", "")
+            q_id = q.get("id", "") if isinstance(q, dict) else getattr(q, "id", "")
+            is_correct = q.get("is_correct", False) if isinstance(q, dict) else getattr(q, "is_correct", False)
+            fp = compute_question_fingerprint(q_text)
+            docs.append({
+                "user_id": user_id,
+                "quiz_id": quiz_id,
+                "question_id": q_id,
+                "topic": topic,
+                "subject": subject,
+                "difficulty": difficulty,
+                "question_text": q_text,
+                "fingerprint": fp,
+                "is_correct": is_correct,
+                "score_percentage": score_percentage,
+                "created_at": now_iso
+            })
+        if docs:
+            try:
+                self._db.question_history.insert_many(docs)
+            except Exception as e:
+                logger.warning(f"Error recording question history in MongoDB: {e}")
+
+    def get_user_attempted_fingerprints(self, user_id: str, topic: Optional[str] = None) -> set:
+        if not self.is_connected or self._db is None:
+            return set()
+        try:
+            query: Dict[str, Any] = {"user_id": user_id}
+            if topic:
+                query["topic"] = topic
+            cursor = self._db.question_history.find(query, {"fingerprint": 1})
+            return {doc["fingerprint"] for doc in cursor if "fingerprint" in doc}
+        except Exception as e:
+            logger.warning(f"Error fetching attempted fingerprints: {e}")
+            return set()
+
+    def get_user_attempted_question_stems(self, user_id: str, topic: Optional[str] = None, limit: int = 50) -> List[str]:
+        if not self.is_connected or self._db is None:
+            return []
+        try:
+            query: Dict[str, Any] = {"user_id": user_id}
+            if topic:
+                query["topic"] = topic
+            cursor = self._db.question_history.find(query, {"question_text": 1}).sort("created_at", -1).limit(limit)
+            return [doc["question_text"] for doc in cursor if "question_text" in doc]
+        except Exception as e:
+            logger.warning(f"Error fetching attempted question stems: {e}")
+            return []
 
     # -------------------------------------------------------------
     # Flashcard Operations

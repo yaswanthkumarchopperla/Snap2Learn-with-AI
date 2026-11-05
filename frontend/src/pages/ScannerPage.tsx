@@ -25,7 +25,8 @@ import {
   AlertTriangle,
   RotateCcw,
   CheckCircle,
-  FileText
+  FileText,
+  Info
 } from 'lucide-react';
 import { SidebarLayout } from '../components/Sidebar';
 import { CameraCapture } from '../components/CameraCapture';
@@ -89,6 +90,7 @@ export const ScannerPage: React.FC = () => {
   const [quizDifficulty, setQuizDifficulty] = useState<Difficulty>('medium');
   const [quizData, setQuizData] = useState<QuizGenerateResponse | null>(null);
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
+  const [isRetakeMode, setIsRetakeMode] = useState(false);
   const [quizError, setQuizError] = useState<string | null>(null);
   const [currentQIndex, setCurrentQIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, number>>({});
@@ -340,8 +342,9 @@ export const ScannerPage: React.FC = () => {
     await triggerQuizGeneration(numQuestions, quizDifficulty);
   };
 
-  const triggerQuizGeneration = async (num: number, diff: Difficulty) => {
+  const triggerQuizGeneration = async (num: number, diff: Difficulty, isRetake: boolean = false) => {
     setIsGeneratingQuiz(true);
+    setIsRetakeMode(isRetake);
     setQuizError(null);
     setQuizResult(null);
     setSelectedAnswers({});
@@ -355,6 +358,7 @@ export const ScannerPage: React.FC = () => {
         topic: editedTopic || 'Core Lecture Notes',
         num_questions: num,
         difficulty: diff,
+        is_retake: isRetake,
       });
       setQuizData(data);
     } catch (err: any) {
@@ -1099,16 +1103,16 @@ export const ScannerPage: React.FC = () => {
                     </h3>
                     <div className="space-y-3">
                       {explanation.formulas.map((item, idx) => (
-                        <div key={idx} className="p-3 rounded-xl bg-surface border border-border">
-                          <span className="font-semibold text-xs text-foreground block mb-1">
+                        <div key={idx} className="p-3.5 rounded-xl bg-surface border border-border">
+                          <span className="font-semibold text-xs text-foreground block mb-1.5">
                             {item.name}
                           </span>
-                          <div className="p-2.5 rounded-lg bg-black/40 border border-border text-center text-xs text-secondary my-1.5">
-                            <MathRenderer content={`$$${item.latex}$$`} />
+                          <div className="p-2.5 rounded-lg bg-black/40 border border-border text-center text-xs text-secondary my-1.5 overflow-x-auto">
+                            <MathRenderer content={item.latex} block />
                           </div>
-                          <p className="text-[11px] text-foreground-muted leading-relaxed">
-                            {item.explanation}
-                          </p>
+                          <div className="text-[11px] text-foreground-muted leading-relaxed mt-1.5">
+                            <MathRenderer content={item.explanation} />
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1134,13 +1138,19 @@ export const ScannerPage: React.FC = () => {
                     </h3>
                     <div className="space-y-2.5 mt-2">
                       {explanation.common_mistakes.map((m, idx) => (
-                        <div key={idx} className="p-2.5 rounded-lg bg-surface border border-border text-xs">
-                          <p className="text-red-400 font-medium line-through mb-1">
-                            ✕ {m.mistake}
-                          </p>
-                          <p className="text-emerald-400 font-medium">
-                            ✓ {m.correction}
-                          </p>
+                        <div key={idx} className="p-3 rounded-lg bg-surface border border-border text-xs space-y-1.5">
+                          <div className="text-red-400 font-medium line-through flex items-start gap-1.5">
+                            <span className="shrink-0">✕</span>
+                            <div className="flex-1">
+                              <MathRenderer content={m.mistake} />
+                            </div>
+                          </div>
+                          <div className="text-emerald-400 font-medium flex items-start gap-1.5">
+                            <span className="shrink-0">✓</span>
+                            <div className="flex-1">
+                              <MathRenderer content={m.correction} />
+                            </div>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1177,13 +1187,16 @@ export const ScannerPage: React.FC = () => {
         {/* ------------------------------------------------------------- */}
         {currentStep === 4 && (
           <div className="space-y-6">
-            {/* Quiz Configuration Toolbar */}
-            <div className="glass-card p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-4 w-full sm:w-auto">
-                {/* Questions count */}
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-foreground-muted">Questions:</span>
-                  <div className="flex rounded-xl bg-surface p-1 border border-border text-xs">
+            {/* Quiz Configuration Toolbar: Stacked on mobile (Questions -> Difficulty -> Timer), horizontal on tablet/desktop */}
+            <div className="glass-card p-4 sm:p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4 sm:gap-5">
+              {/* Selectors Group: Stacked on mobile, side-by-side on tablet/desktop */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 w-full md:w-auto">
+                {/* 1. Questions Selector (Top on mobile) */}
+                <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2.5 w-full sm:w-auto">
+                  <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-foreground-muted shrink-0">
+                    Questions
+                  </span>
+                  <div className="grid grid-cols-2 sm:flex rounded-xl bg-surface p-1 border border-border text-xs w-full sm:w-auto">
                     {[5, 10].map((num) => (
                       <button
                         key={num}
@@ -1192,10 +1205,10 @@ export const ScannerPage: React.FC = () => {
                           setNumQuestions(num);
                           triggerQuizGeneration(num, quizDifficulty);
                         }}
-                        className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+                        className={`py-2 px-4 sm:py-1.5 sm:px-3.5 rounded-lg font-bold text-center transition-all ${
                           numQuestions === num
-                            ? 'bg-primary text-white shadow-xs'
-                            : 'text-foreground-muted hover:text-foreground'
+                            ? 'bg-primary text-white shadow-xs glow-primary'
+                            : 'text-foreground-muted hover:text-foreground hover:bg-surface-elevated/50'
                         }`}
                       >
                         {num}
@@ -1204,10 +1217,12 @@ export const ScannerPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Difficulty */}
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-foreground-muted">Difficulty:</span>
-                  <div className="flex rounded-xl bg-surface p-1 border border-border text-xs">
+                {/* 2. Difficulty Selector (Directly BELOW Questions on mobile) */}
+                <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2.5 w-full sm:w-auto">
+                  <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-foreground-muted shrink-0">
+                    Difficulty
+                  </span>
+                  <div className="grid grid-cols-3 sm:flex rounded-xl bg-surface p-1 border border-border text-xs w-full sm:w-auto">
                     {(['easy', 'medium', 'hard'] as Difficulty[]).map((d) => (
                       <button
                         key={d}
@@ -1216,10 +1231,10 @@ export const ScannerPage: React.FC = () => {
                           setQuizDifficulty(d);
                           triggerQuizGeneration(numQuestions, d);
                         }}
-                        className={`px-3 py-1.5 rounded-lg capitalize font-medium transition-all ${
+                        className={`py-2 px-3 sm:py-1.5 sm:px-3 rounded-lg capitalize font-bold text-center transition-all ${
                           quizDifficulty === d
-                            ? 'bg-secondary text-black font-bold shadow-xs'
-                            : 'text-foreground-muted hover:text-foreground'
+                            ? 'bg-secondary text-black shadow-xs font-extrabold'
+                            : 'text-foreground-muted hover:text-foreground hover:bg-surface-elevated/50'
                         }`}
                       >
                         {d}
@@ -1229,10 +1244,15 @@ export const ScannerPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Timer indicator */}
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface border border-border text-xs font-mono text-secondary">
-                <Clock className="w-4 h-4" />
-                <span>{formatTime(quizSeconds)}</span>
+              {/* 3. Quiz Timer (Below selectors on mobile, aligned right on desktop) */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 w-full sm:w-auto">
+                <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-foreground-muted shrink-0 sm:hidden">
+                  Timer
+                </span>
+                <div className="flex items-center justify-center sm:justify-start gap-2.5 px-4 py-2 sm:py-1.5 rounded-xl bg-surface border border-border text-xs font-mono text-secondary w-full sm:w-auto shrink-0 shadow-xs">
+                  <Clock className="w-4 h-4 text-secondary" />
+                  <span className="font-bold tracking-wider">{formatTime(quizSeconds)}</span>
+                </div>
               </div>
             </div>
 
@@ -1248,9 +1268,23 @@ export const ScannerPage: React.FC = () => {
               <div className="glass-card p-12 text-center flex flex-col items-center justify-center gap-3">
                 <RefreshCw className="w-8 h-8 text-secondary animate-spin" />
                 <p className="text-sm font-semibold text-foreground">
-                  Generating {numQuestions} multiple-choice questions grounded in your notes...
+                  {isRetakeMode
+                    ? "Generating a fresh set of questions..."
+                    : `Generating ${numQuestions} multiple-choice questions grounded in your notes...`}
                 </p>
-                <p className="text-xs text-foreground-muted">Crafting questions, options, and deterministic scoring criteria</p>
+                <p className="text-xs text-foreground-muted">
+                  {isRetakeMode
+                    ? "Filtering previously attempted questions to provide fresh practice"
+                    : "Crafting questions, options, and deterministic scoring criteria"}
+                </p>
+              </div>
+            )}
+
+            {/* Offline Bank Notice if applicable */}
+            {!isGeneratingQuiz && quizData?.notice && (
+              <div className="p-3.5 rounded-xl bg-secondary/10 border border-secondary/20 text-secondary text-xs flex items-center gap-2">
+                <Info className="w-4 h-4 shrink-0" />
+                <span>{quizData.notice}</span>
               </div>
             )}
 
@@ -1401,7 +1435,7 @@ export const ScannerPage: React.FC = () => {
                   type="button"
                   onClick={() => {
                     goToStep(4);
-                    triggerQuizGeneration(numQuestions, quizDifficulty);
+                    triggerQuizGeneration(numQuestions, quizDifficulty, true);
                   }}
                   className="px-5 py-2.5 rounded-xl bg-primary text-white text-xs font-semibold shadow-md glow-primary hover:bg-primary-hover transition-all flex items-center gap-1.5"
                 >

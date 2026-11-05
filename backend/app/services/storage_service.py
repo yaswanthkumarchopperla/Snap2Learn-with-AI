@@ -9,6 +9,7 @@ class InMemoryStore:
         self.notes: Dict[str, NoteItem] = {}
         self.quizzes: Dict[str, Dict[str, Any]] = {}
         self.attempts: List[Dict[str, Any]] = []
+        self.question_history: Dict[str, List[Dict[str, Any]]] = {}
         self.flashcards: Dict[str, FlashcardItem] = {}
         self.otps: Dict[str, str] = {}
         self.users: Dict[str, Dict[str, Any]] = {}
@@ -157,6 +158,56 @@ class InMemoryStore:
     def record_attempt(self, attempt_data: Dict[str, Any]):
         self.attempts.append(attempt_data)
 
+    def get_attempts(self, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        if not user_id:
+            return list(reversed(self.attempts))
+        return [a for a in reversed(self.attempts) if a.get("user_id") == user_id or a.get("user_id") == "guest_student"]
+
+    def record_question_history(
+        self,
+        user_id: str,
+        quiz_id: str,
+        topic: str,
+        subject: str,
+        difficulty: str,
+        questions: List[Any],
+        score_percentage: float
+    ):
+        from app.services.quiz_service import compute_question_fingerprint
+        now_iso = datetime.now(timezone.utc).isoformat()
+        if user_id not in self.question_history:
+            self.question_history[user_id] = []
+        for q in questions:
+            q_text = q.get("question", "") if isinstance(q, dict) else getattr(q, "question", "")
+            q_id = q.get("id", "") if isinstance(q, dict) else getattr(q, "id", "")
+            is_correct = q.get("is_correct", False) if isinstance(q, dict) else getattr(q, "is_correct", False)
+            fp = compute_question_fingerprint(q_text)
+            self.question_history[user_id].append({
+                "user_id": user_id,
+                "quiz_id": quiz_id,
+                "question_id": q_id,
+                "topic": topic,
+                "subject": subject,
+                "difficulty": difficulty,
+                "question_text": q_text,
+                "fingerprint": fp,
+                "is_correct": is_correct,
+                "score_percentage": score_percentage,
+                "created_at": now_iso
+            })
+
+    def get_user_attempted_fingerprints(self, user_id: str, topic: Optional[str] = None) -> set:
+        history = self.question_history.get(user_id, [])
+        if topic:
+            history = [h for h in history if h.get("topic") == topic]
+        return {h["fingerprint"] for h in history if "fingerprint" in h}
+
+    def get_user_attempted_question_stems(self, user_id: str, topic: Optional[str] = None, limit: int = 50) -> List[str]:
+        history = self.question_history.get(user_id, [])
+        if topic:
+            history = [h for h in history if h.get("topic") == topic]
+        return [h["question_text"] for h in reversed(history)][:limit]
+
     # Flashcard operations
     def get_flashcards(self, subject: Optional[str] = None) -> List[FlashcardItem]:
         cards = list(self.flashcards.values())
@@ -283,6 +334,35 @@ class HybridStorageStore:
         self.in_memory.record_attempt(attempt_data)
         if mongodb_service.is_connected:
             mongodb_service.record_attempt(attempt_data)
+
+    def get_attempts(self, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        if mongodb_service.is_connected:
+            return mongodb_service.get_attempts(user_id)
+        return self.in_memory.get_attempts(user_id)
+
+    def record_question_history(
+        self,
+        user_id: str,
+        quiz_id: str,
+        topic: str,
+        subject: str,
+        difficulty: str,
+        questions: List[Any],
+        score_percentage: float
+    ):
+        self.in_memory.record_question_history(user_id, quiz_id, topic, subject, difficulty, questions, score_percentage)
+        if mongodb_service.is_connected:
+            mongodb_service.record_question_history(user_id, quiz_id, topic, subject, difficulty, questions, score_percentage)
+
+    def get_user_attempted_fingerprints(self, user_id: str, topic: Optional[str] = None) -> set:
+        if mongodb_service.is_connected:
+            return mongodb_service.get_user_attempted_fingerprints(user_id, topic)
+        return self.in_memory.get_user_attempted_fingerprints(user_id, topic)
+
+    def get_user_attempted_question_stems(self, user_id: str, topic: Optional[str] = None, limit: int = 50) -> List[str]:
+        if mongodb_service.is_connected:
+            return mongodb_service.get_user_attempted_question_stems(user_id, topic, limit)
+        return self.in_memory.get_user_attempted_question_stems(user_id, topic, limit)
 
     # Flashcard operations
     def get_flashcards(self, subject: Optional[str] = None, user_id: str = "guest_student") -> List[FlashcardItem]:

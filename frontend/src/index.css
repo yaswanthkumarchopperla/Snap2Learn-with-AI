@@ -169,10 +169,85 @@
   background: rgba(255, 255, 255, 0.3);
 }
 
-/* KaTeX custom sizing */
+/* ============================================================== */
+/* KaTeX Mathematical Typography & Responsive Mobile Formatting   */
+/* ============================================================== */
+.katex {
+  color: var(--color-foreground, #F8FAFC);
+  font-size: 1.05em;
+  text-rendering: optimizeLegibility;
+}
+
+/* Ensure inline math doesn't cause awkward line clipping */
+.katex-html {
+  white-space: nowrap;
+}
+
 .katex-display {
-  margin: 0.75em 0 !important;
+  margin: 0.85rem 0 !important;
+  max-width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 0.5em 0;
+  padding: 0.6rem 0.75rem;
+  text-align: center;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  -webkit-overflow-scrolling: touch;
+}
+
+.katex-display > .katex {
+  max-width: 100%;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Container for standalone block math cards */
+.katex-block-wrapper {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-radius: 0.75rem;
+  background: rgba(13, 17, 33, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0.5rem 0.75rem;
+  margin: 0.75rem 0;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Boxed equations (\boxed{...}): modern high-contrast badge styling */
+.katex .fbox {
+  border-color: #22D3EE !important;
+  border-width: 1.5px !important;
+  border-radius: 6px;
+  background: rgba(34, 211, 238, 0.08);
+  box-shadow: 0 0 12px rgba(34, 211, 238, 0.15);
+}
+
+.katex .boxpad {
+  padding: 0.15em 0.35em !important;
+}
+
+/* Ensure fractions, square roots, and symbols have crisp stroke and contrast */
+.katex .frac-line {
+  border-bottom-color: var(--color-foreground, #F8FAFC) !important;
+}
+
+.katex .sqrt > .svg-supp {
+  filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.2));
+}
+
+/* Inline math wrapper */
+.katex-inline-wrapper {
+  display: inline-block;
+  vertical-align: middle;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0 0.15rem;
+  scrollbar-width: none;
+}
+.katex-inline-wrapper::-webkit-scrollbar {
+  display: none;
 }
