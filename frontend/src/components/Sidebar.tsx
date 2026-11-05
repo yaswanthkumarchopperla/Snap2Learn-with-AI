@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   Scan,
@@ -16,6 +16,7 @@ import {
   ShieldAlert
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import LineSidebar from './LineSidebar';
 
 interface SidebarProps {
   children?: React.ReactNode;
@@ -24,6 +25,7 @@ interface SidebarProps {
 export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const navItems = [
@@ -36,6 +38,8 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
     { label: 'Progress Analytics', path: '/analytics', icon: BarChart3 },
     { label: 'Settings', path: '/settings', icon: Settings },
   ];
+
+  const currentActiveIndex = navItems.findIndex(item => item.path === location.pathname);
 
   return (
     <div className="min-h-screen flex bg-background">
@@ -89,36 +93,35 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
             </button>
           </div>
 
-          {/* Navigation Links */}
-          <nav className="px-3 mt-4 space-y-1">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  onClick={() => setMobileOpen(false)}
-                  className={({ isActive }) =>
-                    `flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all ${
-                      isActive
-                        ? 'bg-primary text-white font-semibold shadow-sm glow-primary'
-                        : 'text-foreground-muted hover:text-foreground hover:bg-surface-hover'
-                    }`
-                  }
-                >
-                  <div className="flex items-center gap-3">
-                    <Icon className="w-4 h-4" />
-                    <span>{item.label}</span>
-                  </div>
-                  {item.badge && (
-                    <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-md bg-secondary/20 text-secondary border border-secondary/30">
-                      {item.badge}
-                    </span>
-                  )}
-                </NavLink>
-              );
-            })}
-          </nav>
+          {/* Interactive LineSidebar Navigation */}
+          <div className="px-3 mt-4">
+            <LineSidebar
+              items={navItems}
+              active={currentActiveIndex !== -1 ? currentActiveIndex : 0}
+              accentColor="#38bdf8"
+              textColor="#94a3b8"
+              markerColor="#334155"
+              showIndex={true}
+              showMarker={true}
+              proximityRadius={90}
+              maxShift={16}
+              falloff="smooth"
+              markerLength={24}
+              markerGap={4}
+              tickScale={0.5}
+              scaleTick={true}
+              itemGap={12}
+              fontSize={0.82}
+              smoothing={100}
+              onItemClick={(index) => {
+                const target = navItems[index];
+                if (target) {
+                  navigate(target.path);
+                  setMobileOpen(false);
+                }
+              }}
+            />
+          </div>
         </div>
 
         {/* User Card & Logout Footer */}
