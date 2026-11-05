@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { BookOpen, Sparkles, Mail, User, ArrowRight, KeyRound, CheckCircle2, RefreshCw, ChevronLeft, ShieldCheck } from 'lucide-react';
+import { BookOpen, Sparkles, Mail, User, ArrowRight, CheckCircle2, RefreshCw, ChevronLeft, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import CodeSlots from '../components/CodeSlots';
 
 export const AuthPage: React.FC = () => {
   const navigate = useNavigate();
@@ -12,6 +13,7 @@ export const AuthPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [otp, setOtp] = useState('');
+  const [otpStatus, setOtpStatus] = useState<'idle' | 'error' | 'success'>('idle');
   const [infoMsg, setInfoMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -27,6 +29,7 @@ export const AuthPage: React.FC = () => {
     e.preventDefault();
     setErrorMsg(null);
     setInfoMsg(null);
+    setOtpStatus('idle');
 
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
@@ -43,24 +46,33 @@ export const AuthPage: React.FC = () => {
     }
   };
 
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submitVerification = async (codeToVerify: string) => {
     setErrorMsg(null);
     setInfoMsg(null);
 
-    const cleanOtp = otp.trim();
+    const cleanOtp = codeToVerify.trim();
     if (!cleanOtp || cleanOtp.length !== 6) {
       setErrorMsg('Please enter the full 6-digit verification code from your email.');
+      setOtpStatus('error');
       return;
     }
 
     try {
       await verifyOtp(email.trim().toLowerCase(), cleanOtp, name.trim() || undefined);
-      const destination = (location.state as any)?.from?.pathname || '/dashboard';
-      navigate(destination, { replace: true });
+      setOtpStatus('success');
+      setTimeout(() => {
+        const destination = (location.state as any)?.from?.pathname || '/dashboard';
+        navigate(destination, { replace: true });
+      }, 600);
     } catch (err: any) {
+      setOtpStatus('error');
       setErrorMsg(err.message || 'Invalid or expired verification code. Please request a new OTP.');
     }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await submitVerification(otp);
   };
 
   const handleResend = async () => {
@@ -194,20 +206,31 @@ export const AuthPage: React.FC = () => {
           </form>
         ) : (
           <form onSubmit={handleVerifyOtp} className="space-y-4">
-            <div>
-              <label className="block text-xs font-medium text-foreground-muted mb-1.5 text-center">
+            <div className="flex flex-col items-center">
+              <label className="block text-xs font-medium text-foreground-muted mb-2 text-center">
                 Enter the 6-Digit Code
               </label>
-              <div className="relative">
-                <KeyRound className="w-4 h-4 text-foreground-muted absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  required
-                  maxLength={6}
-                  placeholder="123456"
+              <div className="my-2 flex justify-center w-full overflow-x-auto py-1">
+                <CodeSlots
+                  length={6}
                   value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                  className="w-full pl-9 pr-3 py-3 rounded-xl bg-surface border border-border text-foreground text-center font-mono text-lg tracking-[6px] focus:outline-none focus:border-secondary"
+                  status={otpStatus}
+                  onChange={(code) => {
+                    setOtp(code);
+                    if (otpStatus !== 'idle') setOtpStatus('idle');
+                  }}
+                  onComplete={(code) => {
+                    setOtp(code);
+                    submitVerification(code);
+                  }}
+                  accentColor="#6366f1"
+                  inkColor="#38bdf8"
+                  slotColor="#1e293b"
+                  digitColor="#ffffff"
+                  dangerColor="#f43f5e"
+                  slotSize={46}
+                  gap={8}
+                  radius={12}
                   autoFocus
                 />
               </div>
@@ -215,7 +238,7 @@ export const AuthPage: React.FC = () => {
 
             <button
               type="submit"
-              disabled={isLoading || otp.length < 6}
+              disabled={isLoading || otp.length < 6 || otpStatus === 'success'}
               className="w-full py-3 rounded-xl bg-primary text-white text-xs font-semibold shadow-md glow-primary hover:bg-primary-hover transition-all flex items-center justify-center gap-2 mt-2 cursor-pointer disabled:opacity-50"
             >
               {isLoading ? (

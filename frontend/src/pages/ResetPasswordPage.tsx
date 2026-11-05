@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { KeyRound, Mail, ArrowRight, ShieldCheck, CheckCircle2, AlertCircle, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { api } from '../services/api';
+import CodeSlots from '../components/CodeSlots';
 
 export const ResetPasswordPage: React.FC = () => {
   const navigate = useNavigate();
@@ -12,6 +13,7 @@ export const ResetPasswordPage: React.FC = () => {
 
   const [email, setEmail] = useState(urlEmail);
   const [otp, setOtp] = useState(urlOtp);
+  const [otpStatus, setOtpStatus] = useState<'idle' | 'error' | 'success'>('idle');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -77,8 +79,10 @@ export const ResetPasswordPage: React.FC = () => {
     try {
       const res = await api.resetPassword(email.trim(), otp.trim(), newPassword);
       setSuccessMessage(res.message || 'Password successfully updated!');
+      setOtpStatus('success');
       setIsSuccess(true);
     } catch (err: any) {
+      setOtpStatus('error');
       setError(err.message || 'Invalid or expired reset code. Please try again or request a new code.');
     } finally {
       setLoading(false);
@@ -209,20 +213,30 @@ export const ResetPasswordPage: React.FC = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+              <div className="flex flex-col items-center">
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2 text-center">
                   6-Digit Reset Code
                 </label>
-                <div className="relative">
-                  <ShieldCheck className="w-5 h-5 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    required
-                    maxLength={6}
+                <div className="flex justify-center my-2 overflow-x-auto py-1">
+                  <CodeSlots
+                    length={6}
                     value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                    placeholder="123456"
-                    className="w-full bg-slate-950/60 border border-slate-700/80 rounded-xl pl-11 pr-4 py-2 text-white font-mono tracking-widest placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                    status={otpStatus}
+                    onChange={(code) => {
+                      setOtp(code);
+                      if (otpStatus !== 'idle') setOtpStatus('idle');
+                    }}
+                    onComplete={(code) => {
+                      setOtp(code);
+                    }}
+                    accentColor="#6366f1"
+                    inkColor="#38bdf8"
+                    slotColor="#1e293b"
+                    digitColor="#ffffff"
+                    dangerColor="#f43f5e"
+                    slotSize={42}
+                    gap={6}
+                    radius={10}
                   />
                 </div>
               </div>
