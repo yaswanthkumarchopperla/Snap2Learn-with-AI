@@ -29,16 +29,11 @@ import {
   Info,
   History,
   Play,
-  Pause,
-  Download,
-  FileType,
-  FileCheck,
-  Eye
+  Pause
 } from 'lucide-react';
 import { SidebarLayout } from '../components/Sidebar';
 import { CameraCapture } from '../components/CameraCapture';
 import { MathRenderer } from '../components/MathRenderer';
-import { MarkdownViewer } from '../components/MarkdownViewer';
 import { AutosaveIndicator } from '../components/AutosaveIndicator';
 import { useAutosave } from '../contexts/AutosaveContext';
 import { api } from '../services/api';
@@ -48,7 +43,6 @@ import {
   ScanResponse,
   ScanHistoryItem,
   ExplainResponse,
-  PdfProcessResponse,
   ExplanationMode,
   Language,
   Difficulty,
@@ -89,7 +83,7 @@ export const ScannerPage: React.FC = () => {
   const [scanHistory, setScanHistory] = useState<ScanHistoryItem[]>([]);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
 
-  // Step 1: Camera, Image & PDF state
+  // Step 1: Camera & Image state
   const [showCamera, setShowCamera] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -97,13 +91,6 @@ export const ScannerPage: React.FC = () => {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [subjectHint, setSubjectHint] = useState('');
-  const [uploadFilter, setUploadFilter] = useState<'all' | 'image' | 'pdf'>('all');
-  const [isPdf, setIsPdf] = useState(false);
-  const [pdfPageRange, setPdfPageRange] = useState('all');
-  const [pdfRangePreset, setPdfRangePreset] = useState<'all' | 'custom'>('all');
-  const [pdfProcessData, setPdfProcessData] = useState<PdfProcessResponse | null>(null);
-  const [viewModeStep2, setViewModeStep2] = useState<'rendered' | 'raw'>('rendered');
-  const pdfInputRef = useRef<HTMLInputElement | null>(null);
 
   // Step 2: OCR Extraction state
   const [scanResult, setScanResult] = useState<ScanResponse | null>(null);
@@ -246,22 +233,20 @@ export const ScannerPage: React.FC = () => {
   }, [editedText, editedSubject, editedTopic, autoSavedNoteId, explanation]);
 
   // -------------------------------------------------------------
-  // STEP 1 HANDLERS: File Selection, PDF & Camera
+  // STEP 1 HANDLERS: File Selection & Camera
   // -------------------------------------------------------------
   const validateAndSetFile = (file: File) => {
     setUploadError(null);
-    const isPdfFile = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
     const validImageTypes = ['image/jpeg', 'image/png', 'image/webp'];
 
-    if (!isPdfFile && !validImageTypes.includes(file.type)) {
-      setUploadError(`Unsupported file format (${file.type || 'unknown'}). Please upload a PDF, JPEG, PNG, or WebP document.`);
+    if (!validImageTypes.includes(file.type)) {
+      setUploadError(`Unsupported file format (${file.type || 'unknown'}). Please upload a JPEG, PNG, or WebP image.`);
       return;
     }
 
-    const maxSize = isPdfFile ? 25 * 1024 * 1024 : 10 * 1024 * 1024;
-    const maxMb = isPdfFile ? 25 : 10;
+    const maxSize = 10 * 1024 * 1024;
     if (file.size > maxSize) {
-      setUploadError(`File is too large (${(file.size / (1024 * 1024)).toFixed(1)}MB). Maximum allowed size for ${isPdfFile ? 'PDFs' : 'images'} is ${maxMb}MB.`);
+      setUploadError(`File is too large (${(file.size / (1024 * 1024)).toFixed(1)}MB). Maximum allowed size for images is 10MB.`);
       return;
     }
 
@@ -269,18 +254,9 @@ export const ScannerPage: React.FC = () => {
       URL.revokeObjectURL(previewUrl);
     }
 
-    if (isPdfFile) {
-      setIsPdf(true);
-      setPreviewUrl(null);
-      setSelectedFile(file);
-      setPdfPageRange('all');
-      setPdfRangePreset('all');
-    } else {
-      setIsPdf(false);
-      const url = URL.createObjectURL(file);
-      setSelectedFile(file);
-      setPreviewUrl(url);
-    }
+    const url = URL.createObjectURL(file);
+    setSelectedFile(file);
+    setPreviewUrl(url);
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -311,7 +287,6 @@ export const ScannerPage: React.FC = () => {
   const handleCameraCapture = (file: File, url: string) => {
     setShowCamera(false);
     setUploadError(null);
-    setIsPdf(false);
     setSelectedFile(file);
     setPreviewUrl(url);
   };
@@ -322,8 +297,6 @@ export const ScannerPage: React.FC = () => {
     }
     setSelectedFile(null);
     setPreviewUrl(null);
-    setIsPdf(false);
-    setPdfProcessData(null);
     setUploadError(null);
   };
 
@@ -345,7 +318,6 @@ export const ScannerPage: React.FC = () => {
     setEditedText(sampleText);
     setEditedSubject('Engineering Mathematics');
     setEditedTopic('Eigenvalues & Characteristic Equation');
-    setIsPdf(false);
     setScanResult({
       text: sampleText,
       subject: 'Engineering Mathematics',
@@ -358,90 +330,44 @@ export const ScannerPage: React.FC = () => {
     goToStep(2);
   };
 
-  // Extract Notes (handles both Image Scan & Multi-page PDF Processing)
+  // Extract Notes (Image Scan)
   const handleExtractNotes = async () => {
     if (!selectedFile) {
-      setUploadError('Please select or capture a study document first.');
+      setUploadError('Please select or capture a study photo first.');
       return;
     }
 
     setIsScanning(true);
     setUploadError(null);
 
-    const isPdfDoc = isPdf || selectedFile.type === 'application/pdf' || selectedFile.name.toLowerCase().endsWith('.pdf');
-
     try {
-      if (isPdfDoc) {
-        // PDF Processing pipeline
-        const range = pdfRangePreset === 'all' ? 'all' : (pdfPageRange || 'all');
-        const pdfResult = await api.uploadPdf(selectedFile, range, subjectHint || undefined);
+      // Standard Image Scan pipeline
+      const result = await api.scanImage(selectedFile, subjectHint || undefined);
+      setScanResult(result);
+      setEditedText(result.text);
+      setEditedSubject(result.subject);
+      setEditedTopic(result.topic);
 
-        setPdfProcessData(pdfResult);
-        setIsPdf(true);
-        setEditedText(pdfResult.extracted_markdown);
-        setEditedSubject(pdfResult.subject);
-        setEditedTopic(pdfResult.topic);
-
-        setScanResult({
-          text: pdfResult.extracted_markdown,
-          subject: pdfResult.subject,
-          topic: pdfResult.topic,
-          confidence: `High (${pdfResult.page_count} PDF Pages processed)`,
-          uncertain_segments: [],
-          is_demo: false,
+      // Autosave newly extracted note
+      const note = await triggerAutosave(async () => {
+        return await api.createNote({
+          title: result.topic || result.subject || 'Scanned Study Notes',
+          subject: result.subject || 'Computer Science & Engineering',
+          topic: result.topic || 'Core Lecture Notes',
+          raw_text: result.text,
         });
-
-        // Autosave newly extracted PDF note
-        const note = await triggerAutosave(async () => {
-          return await api.createNote({
-            title: pdfResult.topic || pdfResult.subject || 'PDF Lecture Notes',
-            subject: pdfResult.subject || 'Engineering',
-            topic: pdfResult.topic || 'Core Lecture Notes',
-            raw_text: pdfResult.extracted_markdown,
-          });
-        }, {
-          type: 'note',
-          action: 'create',
-          endpoint: '/api/notes',
-          payload: {
-            title: pdfResult.topic || pdfResult.subject || 'PDF Lecture Notes',
-            subject: pdfResult.subject || 'Engineering',
-            topic: pdfResult.topic || 'Core Lecture Notes',
-            raw_text: pdfResult.extracted_markdown,
-          }
-        });
-        if (note) setAutoSavedNoteId(note.id);
-
-      } else {
-        // Standard Image Scan pipeline
-        const result = await api.scanImage(selectedFile, subjectHint || undefined);
-        setScanResult(result);
-        setEditedText(result.text);
-        setEditedSubject(result.subject);
-        setEditedTopic(result.topic);
-        setIsPdf(false);
-
-        // Autosave newly extracted note
-        const note = await triggerAutosave(async () => {
-          return await api.createNote({
-            title: result.topic || result.subject || 'Scanned Study Notes',
-            subject: result.subject || 'Computer Science & Engineering',
-            topic: result.topic || 'Core Lecture Notes',
-            raw_text: result.text,
-          });
-        }, {
-          type: 'note',
-          action: 'create',
-          endpoint: '/api/notes',
-          payload: {
-            title: result.topic || result.subject || 'Scanned Study Notes',
-            subject: result.subject || 'Computer Science & Engineering',
-            topic: result.topic || 'Core Lecture Notes',
-            raw_text: result.text,
-          }
-        });
-        if (note) setAutoSavedNoteId(note.id);
-      }
+      }, {
+        type: 'note',
+        action: 'create',
+        endpoint: '/api/notes',
+        payload: {
+          title: result.topic || result.subject || 'Scanned Study Notes',
+          subject: result.subject || 'Computer Science & Engineering',
+          topic: result.topic || 'Core Lecture Notes',
+          raw_text: result.text,
+        }
+      });
+      if (note) setAutoSavedNoteId(note.id);
 
       // Refresh scan history
       api.getScanHistory().then((data) => {
@@ -454,42 +380,6 @@ export const ScannerPage: React.FC = () => {
       setUploadError(err.message || 'Failed to extract text. Please ensure the backend server is running and try again.');
     } finally {
       setIsScanning(false);
-    }
-  };
-
-  // Download converted Markdown file (.md)
-  const handleDownloadMarkdown = () => {
-    try {
-      const blob = new Blob([editedText], { type: 'text/markdown;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      const cleanName = (editedTopic || editedSubject || 'study_notes').replace(/[^a-zA-Z0-9_-]/g, '_');
-      a.download = `${cleanName}.md`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      console.error('Download markdown failed:', e);
-    }
-  };
-
-  // Download original PDF file
-  const handleDownloadOriginalPdf = async () => {
-    if (!pdfProcessData?.doc_id) return;
-    try {
-      const blob = await api.downloadOriginalPdf(pdfProcessData.doc_id);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = pdfProcessData.file_name || 'document.pdf';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      console.error('Download original PDF failed:', e);
     }
   };
 
@@ -894,18 +784,11 @@ export const ScannerPage: React.FC = () => {
               </div>
             )}
 
-            {/* Hidden file inputs */}
+            {/* Hidden file input */}
             <input
               type="file"
               ref={fileInputRef}
-              accept="image/jpeg,image/png,image/webp,application/pdf,.pdf"
-              className="hidden"
-              onChange={handleFileInputChange}
-            />
-            <input
-              type="file"
-              ref={pdfInputRef}
-              accept="application/pdf,.pdf"
+              accept="image/jpeg,image/png,image/webp"
               className="hidden"
               onChange={handleFileInputChange}
             />
@@ -915,48 +798,11 @@ export const ScannerPage: React.FC = () => {
               <div className="glass-card p-6 sm:p-10 space-y-6">
                 <div className="text-center max-w-xl mx-auto space-y-2">
                   <h2 className="text-xl sm:text-2xl font-bold text-foreground">
-                    Provide Your Study Material
+                    Capture or Upload Your Study Material
                   </h2>
                   <p className="text-xs sm:text-sm text-foreground-muted">
-                    Upload a lecture PDF, snap textbook photos with your webcam, or drag & drop files to extract notes, tables, and formulas.
+                    Take a picture of handwritten notes, textbooks, or problem sets using your webcam, or upload an image file.
                   </p>
-                </div>
-
-                {/* Upload Format Filter Tabs */}
-                <div className="flex items-center justify-center gap-1.5 max-w-sm mx-auto p-1 rounded-xl bg-surface border border-border">
-                  <button
-                    type="button"
-                    onClick={() => setUploadFilter('all')}
-                    className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all ${
-                      uploadFilter === 'all'
-                        ? 'bg-gradient-to-r from-primary to-secondary text-white shadow-xs'
-                        : 'text-foreground-muted hover:text-foreground'
-                    }`}
-                  >
-                    All Formats
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setUploadFilter('image')}
-                    className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all ${
-                      uploadFilter === 'image'
-                        ? 'bg-gradient-to-r from-primary to-secondary text-white shadow-xs'
-                        : 'text-foreground-muted hover:text-foreground'
-                    }`}
-                  >
-                    Photo Scan
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setUploadFilter('pdf')}
-                    className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all ${
-                      uploadFilter === 'pdf'
-                        ? 'bg-gradient-to-r from-primary to-secondary text-white shadow-xs'
-                        : 'text-foreground-muted hover:text-foreground'
-                    }`}
-                  >
-                    PDF Document
-                  </button>
                 </div>
 
                 {/* Subject hint input */}
@@ -985,58 +831,35 @@ export const ScannerPage: React.FC = () => {
                   }`}
                 >
                   <div className="w-16 h-16 rounded-2xl bg-surface-elevated border border-border flex items-center justify-center text-secondary mx-auto mb-4 shadow-sm">
-                    {uploadFilter === 'pdf' ? (
-                      <FileType className="w-8 h-8 text-rose-400" />
-                    ) : (
-                      <UploadCloud className="w-8 h-8 text-secondary" />
-                    )}
+                    <UploadCloud className="w-8 h-8 text-secondary" />
                   </div>
 
                   <p className="text-sm font-semibold text-foreground mb-1">
-                    {uploadFilter === 'pdf'
-                      ? 'Drag and drop your PDF document here'
-                      : uploadFilter === 'image'
-                      ? 'Drag and drop your study photo here'
-                      : 'Drag and drop study photo or PDF document here'}
+                    Drag and drop your study photo here
                   </p>
                   <p className="text-xs text-foreground-muted mb-6">
-                    Supports JPG, PNG, WEBP, and multi-page PDF (Max 25MB)
+                    Supports JPG, PNG, or WEBP (Max 10MB)
                   </p>
 
                   {/* Primary Action Buttons */}
                   <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                    {uploadFilter !== 'pdf' && (
-                      <button
-                        type="button"
-                        onClick={() => setShowCamera(true)}
-                        className="w-full sm:w-auto px-5 py-3 rounded-xl bg-gradient-to-r from-primary to-secondary text-white font-semibold text-xs shadow-lg glow-primary hover:opacity-95 transition-all flex items-center justify-center gap-2"
-                      >
-                        <Camera className="w-4 h-4" />
-                        <span>Open Camera</span>
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => setShowCamera(true)}
+                      className="w-full sm:w-auto px-5 py-3 rounded-xl bg-gradient-to-r from-primary to-secondary text-white font-semibold text-xs shadow-lg glow-primary hover:opacity-95 transition-all flex items-center justify-center gap-2"
+                    >
+                      <Camera className="w-4 h-4" />
+                      <span>Open Camera</span>
+                    </button>
 
-                    {uploadFilter !== 'pdf' && (
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="w-full sm:w-auto px-5 py-3 rounded-xl bg-surface-elevated hover:bg-surface-hover text-foreground font-semibold text-xs border border-border transition-colors flex items-center justify-center gap-2"
-                      >
-                        <FileImage className="w-4 h-4 text-secondary" />
-                        <span>Upload Photo</span>
-                      </button>
-                    )}
-
-                    {uploadFilter !== 'image' && (
-                      <button
-                        type="button"
-                        onClick={() => pdfInputRef.current?.click()}
-                        className="w-full sm:w-auto px-5 py-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 font-semibold text-xs border border-rose-500/30 transition-colors flex items-center justify-center gap-2"
-                      >
-                        <FileType className="w-4 h-4 text-rose-400" />
-                        <span>Upload PDF</span>
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full sm:w-auto px-5 py-3 rounded-xl bg-surface-elevated hover:bg-surface-hover text-foreground font-semibold text-xs border border-border transition-colors flex items-center justify-center gap-2"
+                    >
+                      <FileImage className="w-4 h-4 text-secondary" />
+                      <span>Upload Photo</span>
+                    </button>
                   </div>
                 </div>
 
@@ -1046,164 +869,6 @@ export const ScannerPage: React.FC = () => {
                   <p>
                     <strong className="text-foreground">Student Data Privacy:</strong> Documents and camera streams are processed securely with end-to-end user isolation. Files are preserved for your account only.
                   </p>
-                </div>
-              </div>
-            ) : isPdf ? (
-              /* Selected PDF Document Preview Card */
-              <div className="glass-card p-6 sm:p-8 space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase bg-rose-500/15 text-rose-400 border border-rose-500/30">
-                        PDF Document
-                      </span>
-                      <h2 className="text-lg font-bold text-foreground">Selected Study PDF</h2>
-                    </div>
-                    <p className="text-xs text-foreground-muted mt-0.5">
-                      Extract text, tables, and LaTeX math. Select page range or process the full document.
-                    </p>
-                  </div>
-
-                  {/* Metadata pill */}
-                  <div className="flex items-center gap-2 text-xs text-foreground-muted">
-                    <span className="px-2.5 py-1 rounded-lg bg-surface border border-border font-medium text-foreground">
-                      {selectedFile.name}
-                    </span>
-                    <span className="px-2 py-1 rounded-lg bg-surface border border-border">
-                      {(selectedFile.size / (1024 * 1024)).toFixed(1)} MB
-                    </span>
-                  </div>
-                </div>
-
-                {/* PDF Hero Box */}
-                <div className="relative p-6 sm:p-8 rounded-2xl bg-surface-elevated/70 border border-border/70 flex flex-col items-center justify-center text-center space-y-3">
-                  <div className="w-16 h-16 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 shadow-sm">
-                    <FileType className="w-8 h-8" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-foreground">{selectedFile.name}</h3>
-                    <p className="text-xs text-foreground-muted">
-                      Ready for multi-page extraction and conversion to KaTeX Markdown
-                    </p>
-                  </div>
-
-                  {isScanning && (
-                    <div className="absolute inset-0 bg-black/85 backdrop-blur-xs rounded-2xl flex flex-col items-center justify-center gap-3 p-4">
-                      <RefreshCw className="w-10 h-10 text-secondary animate-spin" />
-                      <p className="text-sm font-semibold text-foreground">
-                        Extracting PDF pages & converting formulas to Markdown...
-                      </p>
-                      <p className="text-xs text-foreground-muted">
-                        Preserving headings, tables, code snippets, and LaTeX equations
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Page Range Selector */}
-                <div className="p-4 sm:p-5 rounded-2xl bg-surface border border-border space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-xs font-bold text-foreground">Page Range Selection</h4>
-                      <p className="text-[11px] text-foreground-muted">
-                        Select which pages to extract and include in your study materials
-                      </p>
-                    </div>
-                    <span className="text-[11px] font-mono text-secondary">
-                      {pdfRangePreset === 'all' ? 'All Pages' : `Pages: ${pdfPageRange || 'None'}`}
-                    </span>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                    <div className="flex items-center gap-2 p-1 rounded-xl bg-surface-elevated border border-border shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPdfRangePreset('all');
-                          setPdfPageRange('all');
-                        }}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                          pdfRangePreset === 'all'
-                            ? 'bg-primary text-white shadow-xs'
-                            : 'text-foreground-muted hover:text-foreground'
-                        }`}
-                      >
-                        Entire PDF (All)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPdfRangePreset('custom');
-                          if (pdfPageRange === 'all') setPdfPageRange('1-3');
-                        }}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                          pdfRangePreset === 'custom'
-                            ? 'bg-primary text-white shadow-xs'
-                            : 'text-foreground-muted hover:text-foreground'
-                        }`}
-                      >
-                        Specific Range
-                      </button>
-                    </div>
-
-                    {pdfRangePreset === 'custom' && (
-                      <div className="flex-1">
-                        <input
-                          type="text"
-                          value={pdfPageRange}
-                          onChange={(e) => setPdfPageRange(e.target.value)}
-                          placeholder="e.g. 1-3, 5 or 2,4"
-                          className="w-full px-3.5 py-1.5 rounded-xl bg-surface-elevated border border-border text-xs text-foreground placeholder:text-foreground-muted/50 focus:outline-none focus:border-secondary transition-colors"
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Action Buttons Toolbar */}
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-border">
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <button
-                      type="button"
-                      disabled={isScanning}
-                      onClick={() => pdfInputRef.current?.click()}
-                      className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-surface hover:bg-surface-hover text-foreground font-semibold text-xs border border-border transition-colors flex items-center justify-center gap-1.5"
-                    >
-                      <UploadCloud className="w-3.5 h-3.5 text-secondary" />
-                      <span>Replace PDF</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={isScanning}
-                      onClick={handleRemoveFile}
-                      className="p-2.5 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
-                      title="Remove PDF"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  {/* Primary Extract Button */}
-                  <button
-                    type="button"
-                    onClick={handleExtractNotes}
-                    disabled={isScanning || !selectedFile}
-                    className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white font-bold text-xs sm:text-sm shadow-lg glow-primary hover:opacity-95 disabled:opacity-50 transition-all flex items-center justify-center gap-2.5"
-                  >
-                    {isScanning ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                        <span>Processing PDF...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-4 h-4" />
-                        <span>Extract Notes & Convert to Markdown</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </>
-                    )}
-                  </button>
                 </div>
               </div>
             ) : (
@@ -1308,33 +973,22 @@ export const ScannerPage: React.FC = () => {
         )}
 
         {/* ------------------------------------------------------------- */}
-        {/* STEP 2: REVIEW EXTRACTED TEXT & MARKDOWN PREVIEW              */}
+        {/* STEP 2: REVIEW EXTRACTED TEXT                                 */}
         {/* ------------------------------------------------------------- */}
         {currentStep === 2 && (
           <div className="glass-card p-6 sm:p-8 space-y-6">
             {/* Header with Badges */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
               <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-bold text-foreground">Review Extracted Content</h2>
-                  {isPdf && (
-                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase bg-rose-500/15 text-rose-400 border border-rose-500/30">
-                      PDF Converted (.md)
-                    </span>
-                  )}
-                </div>
+                <h2 className="text-lg font-bold text-foreground">Review Extracted Notes</h2>
                 <p className="text-xs text-foreground-muted mt-0.5">
-                  Verify or edit the extracted Markdown, tables, and mathematical formulas before generating simple notes.
+                  Verify or edit the text and mathematical formulas transcribed from your study notes before generating simple explanations.
                 </p>
               </div>
 
-              {/* Status / Page badges */}
+              {/* Status badge */}
               <div className="flex items-center gap-2 flex-wrap">
-                {pdfProcessData ? (
-                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-primary/15 text-primary-light border border-primary/30">
-                    Pages: {pdfProcessData.selected_page_range} of {pdfProcessData.page_count}
-                  </span>
-                ) : scanResult?.is_demo ? (
+                {scanResult?.is_demo ? (
                   <span className="px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30">
                     ⚡ Demo Mode
                   </span>
@@ -1343,62 +997,6 @@ export const ScannerPage: React.FC = () => {
                     Confidence: {scanResult.confidence}
                   </span>
                 ) : null}
-              </div>
-            </div>
-
-            {/* View Mode & Download Action Toolbar */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-2xl bg-surface border border-border">
-              {/* Mode Toggle: Rendered vs Raw */}
-              <div className="flex items-center gap-1.5 p-1 rounded-xl bg-surface-elevated border border-border self-start sm:self-auto">
-                <button
-                  type="button"
-                  onClick={() => setViewModeStep2('rendered')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    viewModeStep2 === 'rendered'
-                      ? 'bg-primary text-white shadow-xs'
-                      : 'text-foreground-muted hover:text-foreground'
-                  }`}
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  <span>Rendered Preview</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewModeStep2('raw')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    viewModeStep2 === 'raw'
-                      ? 'bg-primary text-white shadow-xs'
-                      : 'text-foreground-muted hover:text-foreground'
-                  }`}
-                >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  <span>Edit Raw Markdown</span>
-                </button>
-              </div>
-
-              {/* Download Buttons */}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleDownloadMarkdown}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-surface-elevated hover:bg-surface-hover text-foreground font-semibold text-xs border border-border transition-colors"
-                  title="Download clean Markdown file"
-                >
-                  <Download className="w-3.5 h-3.5 text-secondary" />
-                  <span>Download .md</span>
-                </button>
-
-                {pdfProcessData && (
-                  <button
-                    type="button"
-                    onClick={handleDownloadOriginalPdf}
-                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 font-semibold text-xs border border-rose-500/30 transition-colors"
-                    title="Download original uploaded PDF"
-                  >
-                    <FileType className="w-3.5 h-3.5 text-rose-400" />
-                    <span>Download PDF</span>
-                  </button>
-                )}
               </div>
             </div>
 
@@ -1445,52 +1043,36 @@ export const ScannerPage: React.FC = () => {
               </div>
             )}
 
-            {/* Content Display: Rendered Markdown (KaTeX & Tables) or Editable Textarea */}
-            {viewModeStep2 === 'rendered' ? (
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="block text-xs font-semibold text-foreground">
-                    Formatted Markdown Preview (with KaTeX Math & Tables)
-                  </label>
-                  <span className="text-[11px] text-foreground-muted font-mono">
-                    {editedText.length} characters
-                  </span>
-                </div>
-                <div className="p-5 sm:p-6 rounded-2xl bg-surface border border-border max-h-[500px] overflow-y-auto scrollbar-thin">
-                  <MarkdownViewer content={editedText} />
-                </div>
+            {/* Content Display: Textarea & Live KaTeX formula preview */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold text-foreground">
+                  Extracted Note Content (Editable)
+                </label>
+                <span className="text-[11px] text-foreground-muted font-mono">
+                  {editedText.length} characters
+                </span>
               </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="block text-xs font-semibold text-foreground">
-                    Raw Markdown Content (Editable)
-                  </label>
-                  <span className="text-[11px] text-foreground-muted font-mono">
-                    {editedText.length} characters
-                  </span>
-                </div>
-                <textarea
-                  rows={12}
-                  value={editedText}
-                  onChange={(e) => setEditedText(e.target.value)}
-                  placeholder="Extracted Markdown with LaTeX formulas ($...$ or $$...$$) will appear here..."
-                  className="w-full p-4 rounded-xl bg-surface border border-border text-xs sm:text-sm font-mono text-foreground focus:outline-none focus:border-secondary leading-relaxed resize-y"
-                />
+              <textarea
+                rows={12}
+                value={editedText}
+                onChange={(e) => setEditedText(e.target.value)}
+                placeholder="Transcribed lecture notes with LaTeX formulas ($...$ or $$...$$) will appear here..."
+                className="w-full p-4 rounded-xl bg-surface border border-border text-xs sm:text-sm font-mono text-foreground focus:outline-none focus:border-secondary leading-relaxed resize-y"
+              />
 
-                {/* Live Formula Preview below textarea if LaTeX is present in raw text */}
-                {(editedText.includes('$') || editedText.includes('\\[')) && (
-                  <div className="p-4 rounded-xl bg-surface-elevated border border-border space-y-1">
-                    <span className="text-[10px] uppercase font-bold text-secondary block tracking-wider">
-                      Rendered LaTeX Formula Preview
-                    </span>
-                    <div className="text-xs sm:text-sm text-foreground leading-relaxed pt-1">
-                      <MathRenderer content={editedText} />
-                    </div>
+              {/* Live Formula Preview below textarea if LaTeX is present in raw text */}
+              {(editedText.includes('$') || editedText.includes('\\[')) && (
+                <div className="p-4 rounded-xl bg-surface-elevated border border-border space-y-1">
+                  <span className="text-[10px] uppercase font-bold text-secondary block tracking-wider">
+                    Rendered LaTeX Formula Preview
+                  </span>
+                  <div className="text-xs sm:text-sm text-foreground leading-relaxed pt-1">
+                    <MathRenderer content={editedText} />
                   </div>
-                )}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
 
             {/* Action Buttons */}
             <div className="flex items-center justify-between pt-4 border-t border-border">
@@ -1500,7 +1082,7 @@ export const ScannerPage: React.FC = () => {
                 className="px-4 py-2 rounded-xl bg-surface border border-border hover:bg-surface-hover text-foreground text-xs font-semibold transition-colors flex items-center gap-1.5"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Back to Document</span>
+                <span>Back to Photo</span>
               </button>
 
               <button

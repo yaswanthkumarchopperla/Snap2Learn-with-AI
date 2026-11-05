@@ -28,7 +28,6 @@ class InMemoryStore:
         self.chat_sessions: Dict[str, Dict[str, Any]] = {}
         self.quiz_progress: Dict[str, Dict[str, Any]] = {}
         self.user_preferences: Dict[str, Dict[str, Any]] = {}
-        self.pdf_documents: Dict[str, Dict[str, Any]] = {}
 
         if not self._load_from_disk():
             self._seed_initial_data()
@@ -50,7 +49,6 @@ class InMemoryStore:
                 "chat_sessions": self.chat_sessions,
                 "quiz_progress": self.quiz_progress,
                 "user_preferences": self.user_preferences,
-                "pdf_documents": self.pdf_documents,
             }
             # Atomic write
             temp_file = PERSISTENCE_FILE.with_suffix(".tmp")
@@ -79,7 +77,6 @@ class InMemoryStore:
             self.chat_sessions = data.get("chat_sessions", {})
             self.quiz_progress = data.get("quiz_progress", {})
             self.user_preferences = data.get("user_preferences", {})
-            self.pdf_documents = data.get("pdf_documents", {})
             logger.info("Successfully loaded state from local disk persistence.")
             return True
         except Exception as e:
@@ -452,66 +449,6 @@ class InMemoryStore:
     def get_scan_history(self, user_id: str = "guest_student", limit: int = 20) -> List[Dict[str, Any]]:
         user_scans = [s for s in self.scans if s.get("user_id") in (user_id, "guest_student")]
         return user_scans[:limit]
-
-    # PDF Document operations
-    def save_pdf_document(self, doc_data: Dict[str, Any], user_id: str = "guest_student") -> Dict[str, Any]:
-        doc_id = doc_data.get("doc_id") or f"pdf-{uuid.uuid4().hex[:12]}"
-        doc = dict(doc_data)
-        doc["doc_id"] = doc_id
-        doc["user_id"] = user_id
-        doc["updated_at"] = datetime.now(timezone.utc).isoformat()
-        self.pdf_documents[doc_id] = doc
-
-        # Synchronize with scans list for unified scan history
-        scan_id = doc_id
-        scan_doc = {
-            "id": scan_id,
-            "user_id": user_id,
-            "text": doc.get("extracted_text") or doc.get("extracted_markdown", ""),
-            "subject": doc.get("subject", "Engineering"),
-            "topic": doc.get("topic", "Core Concepts"),
-            "confidence": "High (PDF Document)",
-            "uncertain_segments": [],
-            "source_type": "pdf",
-            "file_name": doc.get("file_name"),
-            "created_at": doc.get("created_at") or datetime.now(timezone.utc).isoformat()
-        }
-        self.scans = [s for s in self.scans if s.get("id") != scan_id]
-        self.scans.insert(0, scan_doc)
-
-        self._save_to_disk()
-        return doc
-
-    def get_pdf_document(self, doc_id: str, user_id: str = "guest_student") -> Optional[Dict[str, Any]]:
-        doc = self.pdf_documents.get(doc_id)
-        if doc and doc.get("user_id") in (user_id, "guest_student"):
-            return doc
-        return None
-
-    def update_pdf_document(self, doc_id: str, updates: Dict[str, Any], user_id: str = "guest_student") -> Optional[Dict[str, Any]]:
-        doc = self.pdf_documents.get(doc_id)
-        if not doc or doc.get("user_id") not in (user_id, "guest_student"):
-            return None
-        doc.update(updates)
-        doc["updated_at"] = datetime.now(timezone.utc).isoformat()
-
-        # Update in scans as well if needed
-        for s in self.scans:
-            if s.get("id") == doc_id:
-                if "extracted_markdown" in updates:
-                    s["text"] = updates["extracted_markdown"]
-                if "subject" in updates:
-                    s["subject"] = updates["subject"]
-                if "topic" in updates:
-                    s["topic"] = updates["topic"]
-
-        self._save_to_disk()
-        return doc
-
-    def get_pdf_history(self, user_id: str = "guest_student", limit: int = 20) -> List[Dict[str, Any]]:
-        docs = [d for d in self.pdf_documents.values() if d.get("user_id") in (user_id, "guest_student")]
-        docs.sort(key=lambda d: d.get("created_at", ""), reverse=True)
-        return docs[:limit]
 
     # Chat operations
     def save_chat_message(
@@ -929,35 +866,6 @@ class HybridStorageStore:
         if mongodb_service.is_connected:
             return mongodb_service.get_scan_history(user_id, limit)
         return self.in_memory.get_scan_history(user_id, limit)
-
-    # PDF Document operations
-    def save_pdf_document(self, doc_data: Dict[str, Any], user_id: str = "guest_student") -> Dict[str, Any]:
-        doc = self.in_memory.save_pdf_document(doc_data, user_id)
-        if mongodb_service.is_connected:
-            return mongodb_service.save_pdf_document(doc_data, user_id)
-        return doc
-
-    def get_pdf_document(self, doc_id: str, user_id: str = "guest_student") -> Optional[Dict[str, Any]]:
-        if mongodb_service.is_connected:
-            doc = mongodb_service.get_pdf_document(doc_id, user_id)
-            if doc:
-                return doc
-        return self.in_memory.get_pdf_document(doc_id, user_id)
-
-    def update_pdf_document(self, doc_id: str, updates: Dict[str, Any], user_id: str = "guest_student") -> Optional[Dict[str, Any]]:
-        doc = self.in_memory.update_pdf_document(doc_id, updates, user_id)
-        if mongodb_service.is_connected:
-            mongo_doc = mongodb_service.update_pdf_document(doc_id, updates, user_id)
-            if mongo_doc:
-                return mongo_doc
-        return doc
-
-    def get_pdf_history(self, user_id: str = "guest_student", limit: int = 20) -> List[Dict[str, Any]]:
-        if mongodb_service.is_connected:
-            res = mongodb_service.get_pdf_history(user_id, limit)
-            if res:
-                return res
-        return self.in_memory.get_pdf_history(user_id, limit)
 
     # Chat operations
     def save_chat_message(

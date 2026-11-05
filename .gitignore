@@ -28,8 +28,6 @@ Thumbs.db
 .coverage
 htmlcov/
 
-# Runtime Uploads & Local Storage
-backend/data/uploads/
+# Runtime Local Data Cache
 backend/data/*.json
 backend/data/*.tmp
-*.pdf

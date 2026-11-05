@@ -15,10 +15,7 @@ import {
   ExplanationMode,
   Difficulty,
   UserPreferences,
-  LearningStatus,
-  PdfProcessResponse,
-  PdfUpdateRequest,
-  PdfHistoryItem
+  LearningStatus
 } from '../types';
 
 const API_BASE = '/api';
@@ -426,79 +423,6 @@ export const api = {
       const err = await res.json().catch(() => ({ detail: 'Login failed' }));
       throw new Error(err.detail || 'Incorrect email or password');
     }
-    return res.json();
-  },
-
-  // -------------------------------------------------------------
-  // PDF Document Operations
-  // -------------------------------------------------------------
-  async uploadPdf(file: File, pageRange?: string, subjectHint?: string): Promise<PdfProcessResponse> {
-    const formData = new FormData();
-    formData.append('file', file);
-    if (pageRange) formData.append('page_range', pageRange);
-    if (subjectHint) formData.append('subject_hint', subjectHint);
-
-    const res = await fetch(`${API_BASE}/pdf/upload`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: formData,
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: 'Failed to process PDF document' }));
-      throw new Error(err.detail || 'Failed to process PDF document');
-    }
-    return res.json();
-  },
-
-  async getPdfDocument(docId: string): Promise<PdfProcessResponse> {
-    const res = await fetch(`${API_BASE}/pdf/${docId}`, {
-      headers: getAuthHeaders(),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: 'Failed to load PDF document' }));
-      throw new Error(err.detail || 'Failed to load PDF document');
-    }
-    return res.json();
-  },
-
-  async updatePdfDocument(docId: string, updates: PdfUpdateRequest): Promise<PdfProcessResponse> {
-    const res = await fetch(`${API_BASE}/pdf/${docId}`, {
-      method: 'PUT',
-      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify(updates),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: 'Failed to update PDF document' }));
-      throw new Error(err.detail || 'Failed to update PDF document');
-    }
-    return res.json();
-  },
-
-  async downloadOriginalPdf(docId: string): Promise<Blob> {
-    const res = await fetch(`${API_BASE}/pdf/${docId}/download`, {
-      headers: getAuthHeaders(),
-    });
-    if (!res.ok) {
-      throw new Error('Failed to download PDF document');
-    }
-    return res.blob();
-  },
-
-  async downloadConvertedMarkdown(docId: string): Promise<string> {
-    const res = await fetch(`${API_BASE}/pdf/${docId}/markdown`, {
-      headers: getAuthHeaders(),
-    });
-    if (!res.ok) {
-      throw new Error('Failed to download Markdown file');
-    }
-    return res.text();
-  },
-
-  async getPdfHistory(): Promise<PdfHistoryItem[]> {
-    const res = await fetch(`${API_BASE}/pdf/history`, {
-      headers: getAuthHeaders(),
-    });
-    if (!res.ok) return [];
     return res.json();
   },
 };

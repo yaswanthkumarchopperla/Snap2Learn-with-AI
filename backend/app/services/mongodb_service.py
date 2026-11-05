@@ -68,8 +68,6 @@ class MongoDBService:
             self._db.chat_sessions.create_index([("user_id", ASCENDING), ("updated_at", ASCENDING)])
             self._db.quiz_progress.create_index([("user_id", ASCENDING), ("quiz_id", ASCENDING)], unique=True)
             self._db.user_preferences.create_index([("user_id", ASCENDING)], unique=True)
-            self._db.pdf_documents.create_index([("user_id", ASCENDING), ("created_at", ASCENDING)])
-            self._db.pdf_documents.create_index([("doc_id", ASCENDING)], unique=True)
 
             # Seed sample notes if empty
             if self._db.notes.count_documents({}) == 0:
@@ -914,93 +912,6 @@ class MongoDBService:
             recent_activity=recent,
             recommended_revision=recommended
         )
-
-    # PDF Document Operations
-    def save_pdf_document(self, doc_data: Dict[str, Any], user_id: str = "guest_student") -> Dict[str, Any]:
-        if not self.is_connected or self._db is None:
-            return doc_data
-        try:
-            doc = dict(doc_data)
-            doc["user_id"] = user_id
-            doc["updated_at"] = datetime.now(timezone.utc).isoformat()
-            self._db.pdf_documents.update_one(
-                {"doc_id": doc.get("doc_id")},
-                {"$set": doc},
-                upsert=True
-            )
-            # Also sync into scans collection for unified recent scan history
-            self._db.scans.update_one(
-                {"id": doc.get("doc_id")},
-                {"$set": {
-                    "id": doc.get("doc_id"),
-                    "user_id": user_id,
-                    "text": doc.get("extracted_text") or doc.get("extracted_markdown"),
-                    "subject": doc.get("subject", "Engineering"),
-                    "topic": doc.get("topic", "Core Concepts"),
-                    "confidence": "High (PDF Document)",
-                    "uncertain_segments": [],
-                    "source_type": "pdf",
-                    "file_name": doc.get("file_name"),
-                    "created_at": doc.get("created_at") or datetime.now(timezone.utc).isoformat()
-                }},
-                upsert=True
-            )
-            return doc
-        except Exception as e:
-            logger.warning(f"Failed to save PDF document to MongoDB: {e}")
-            return doc_data
-
-    def get_pdf_document(self, doc_id: str, user_id: str = "guest_student") -> Optional[Dict[str, Any]]:
-        if not self.is_connected or self._db is None:
-            return None
-        try:
-            doc = self._db.pdf_documents.find_one({"doc_id": doc_id})
-            if doc and "_id" in doc:
-                del doc["_id"]
-            return doc
-        except Exception as e:
-            logger.warning(f"Failed to get PDF document from MongoDB: {e}")
-            return None
-
-    def update_pdf_document(self, doc_id: str, updates: Dict[str, Any], user_id: str = "guest_student") -> Optional[Dict[str, Any]]:
-        if not self.is_connected or self._db is None:
-            return None
-        try:
-            updates["updated_at"] = datetime.now(timezone.utc).isoformat()
-            self._db.pdf_documents.update_one(
-                {"doc_id": doc_id},
-                {"$set": updates}
-            )
-            # If markdown or topic was updated, update scans entry as well
-            scan_updates: Dict[str, Any] = {}
-            if "extracted_markdown" in updates:
-                scan_updates["text"] = updates["extracted_markdown"]
-            if "subject" in updates:
-                scan_updates["subject"] = updates["subject"]
-            if "topic" in updates:
-                scan_updates["topic"] = updates["topic"]
-            if scan_updates:
-                self._db.scans.update_one({"id": doc_id}, {"$set": scan_updates})
-            return self.get_pdf_document(doc_id, user_id)
-        except Exception as e:
-            logger.warning(f"Failed to update PDF document in MongoDB: {e}")
-            return None
-
-    def get_pdf_history(self, user_id: str = "guest_student", limit: int = 20) -> List[Dict[str, Any]]:
-        if not self.is_connected or self._db is None:
-            return []
-        try:
-            query = {"user_id": {"$in": [user_id, "guest_student"]}}
-            cursor = self._db.pdf_documents.find(query).sort("created_at", -1).limit(limit)
-            items = []
-            for doc in cursor:
-                if "_id" in doc:
-                    del doc["_id"]
-                items.append(doc)
-            return items
-        except Exception as e:
-            logger.warning(f"Failed to query PDF history from MongoDB: {e}")
-            return []
 
 
 mongodb_service = MongoDBService()
