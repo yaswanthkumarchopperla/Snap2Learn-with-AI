@@ -145,7 +145,7 @@ export const SettingsPage: React.FC = () => {
           </div>
 
           {/* Theme & Display */}
-          <div className="glass-card p-6 flex items-center justify-between">
+          <div className="glass-card p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="text-sm font-bold text-foreground mb-0.5">Application Theme</h3>
               <p className="text-xs text-foreground-muted">Toggle between dark and light appearance</p>
@@ -154,7 +154,7 @@ export const SettingsPage: React.FC = () => {
             <button
               type="button"
               onClick={toggleTheme}
-              className="px-4 py-2 rounded-xl bg-surface border border-border hover:bg-surface-hover text-foreground text-xs font-semibold transition-colors flex items-center gap-2"
+              className="self-stretch sm:self-auto px-4 py-2 rounded-xl bg-surface border border-border hover:bg-surface-hover text-foreground text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer"
             >
               {theme === 'dark' ? (
                 <>
@@ -173,7 +173,7 @@ export const SettingsPage: React.FC = () => {
           <div className="flex justify-end">
             <button
               type="submit"
-              className="px-6 py-2.5 rounded-xl bg-primary text-white text-xs font-semibold shadow-md glow-primary hover:bg-primary-hover transition-all"
+              className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-primary text-white text-xs font-semibold shadow-md glow-primary hover:bg-primary-hover transition-all cursor-pointer"
             >
               Save Preferences
             </button>
@@ -181,9 +181,9 @@ export const SettingsPage: React.FC = () => {
         </form>
 
         {/* Security & Data Privacy Card */}
-        <div className="glass-card p-6 border-l-4 border-l-secondary space-y-4">
+        <div className="glass-card p-4 sm:p-6 border-l-4 border-l-secondary space-y-4">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-secondary" />
+            <ShieldCheck className="w-5 h-5 text-secondary shrink-0" />
             <h3 className="text-sm font-bold text-foreground">Data Privacy & Security Guarantee</h3>
           </div>
           <p className="text-xs text-foreground-muted leading-relaxed">
@@ -191,11 +191,11 @@ export const SettingsPage: React.FC = () => {
             API keys are strictly managed on the FastAPI backend. You can purge local session caches at any time.
           </p>
 
-          <div className="pt-3 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="pt-3 border-t border-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <button
               type="button"
               onClick={handleClearLocalData}
-              className="px-4 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-semibold border border-red-500/30 transition-colors flex items-center gap-1.5"
+              className="px-4 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-semibold border border-red-500/30 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <Trash2 className="w-4 h-4" />
               <span>Purge Cached Local Session Data</span>
@@ -207,7 +207,7 @@ export const SettingsPage: React.FC = () => {
                 logout();
                 window.location.href = '/';
               }}
-              className="px-4 py-2 rounded-xl bg-surface border border-border hover:bg-surface-hover text-foreground-muted hover:text-foreground text-xs font-semibold transition-colors flex items-center gap-1.5"
+              className="px-4 py-2 rounded-xl bg-surface border border-border hover:bg-surface-hover text-foreground-muted hover:text-foreground text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
               <span>Sign Out of Account</span>

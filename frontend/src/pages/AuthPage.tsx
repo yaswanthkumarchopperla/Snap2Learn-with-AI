@@ -241,9 +241,9 @@ export const AuthPage: React.FC = () => {
                   slotColor="#1e293b"
                   digitColor="#ffffff"
                   dangerColor="#f43f5e"
-                  slotSize={46}
-                  gap={8}
-                  radius={12}
+                  slotSize={42}
+                  gap={6}
+                  radius={10}
                   autoFocus
                 />
               </div>

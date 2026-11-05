@@ -46,13 +46,18 @@ export const AnalyticsPage: React.FC = () => {
     fetchAnalytics();
   }, []);
 
+  const truncateLabel = (val: string, maxLen = 10) => {
+    if (!val) return '';
+    return val.length > maxLen ? `${val.substring(0, maxLen)}…` : val;
+  };
+
   return (
     <SidebarLayout>
-      <div className="p-4 sm:p-6 lg:p-8 max-w-6xl w-full mx-auto space-y-6">
+      <div className="p-3.5 sm:p-6 lg:p-8 max-w-6xl w-full mx-auto space-y-5 sm:space-y-6 pb-20 lg:pb-8 min-w-0">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
               <BarChart3 className="w-6 h-6 text-secondary" />
               <span>Progress Analytics</span>
             </h1>
@@ -62,8 +67,9 @@ export const AnalyticsPage: React.FC = () => {
           </div>
 
           <button
+            type="button"
             onClick={() => navigate('/quiz')}
-            className="self-start sm:self-auto px-4 py-2 rounded-xl bg-primary text-white text-xs font-semibold shadow-md glow-primary hover:bg-primary-hover transition-all flex items-center gap-1.5"
+            className="self-stretch sm:self-auto px-4 py-2.5 rounded-xl bg-primary text-white text-xs font-semibold shadow-md glow-primary hover:bg-primary-hover transition-all flex items-center justify-center gap-1.5 cursor-pointer"
           >
             <Award className="w-4 h-4" />
             <span>Take Practice Quiz</span>
@@ -76,49 +82,49 @@ export const AnalyticsPage: React.FC = () => {
             <span className="text-xs text-foreground-muted">Aggregating progress telemetry...</span>
           </div>
         ) : (
-          <div className="space-y-6">
-            {/* Overview KPI Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="glass-card p-4">
-                <span className="text-xs font-medium text-foreground-muted block mb-1">Average Accuracy</span>
-                <p className="text-2xl sm:text-3xl font-extrabold text-secondary">
+          <div className="space-y-6 min-w-0">
+            {/* Overview KPI Cards: 1 col mobile, 2 col tablet, 4 col desktop */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="glass-card p-4 min-w-0 overflow-hidden">
+                <span className="text-xs font-medium text-foreground-muted block mb-1 truncate">Average Accuracy</span>
+                <p className="text-2xl sm:text-3xl font-extrabold text-secondary truncate">
                   {analytics?.average_accuracy}%
                 </p>
-                <span className="text-[10px] text-foreground-muted mt-1 block">Semester benchmark: 60%</span>
+                <span className="text-[10px] text-foreground-muted mt-1 block truncate">Semester benchmark: 60%</span>
               </div>
 
-              <div className="glass-card p-4">
-                <span className="text-xs font-medium text-foreground-muted block mb-1">Completed Quizzes</span>
-                <p className="text-2xl sm:text-3xl font-extrabold text-foreground">
+              <div className="glass-card p-4 min-w-0 overflow-hidden">
+                <span className="text-xs font-medium text-foreground-muted block mb-1 truncate">Completed Quizzes</span>
+                <p className="text-2xl sm:text-3xl font-extrabold text-foreground truncate">
                   {analytics?.quizzes_completed}
                 </p>
-                <span className="text-[10px] text-foreground-muted mt-1 block">Full evaluations</span>
+                <span className="text-[10px] text-foreground-muted mt-1 block truncate">Full evaluations</span>
               </div>
 
-              <div className="glass-card p-4">
-                <span className="text-xs font-medium text-foreground-muted block mb-1">Study Notes</span>
-                <p className="text-2xl sm:text-3xl font-extrabold text-foreground">
+              <div className="glass-card p-4 min-w-0 overflow-hidden">
+                <span className="text-xs font-medium text-foreground-muted block mb-1 truncate">Study Notes</span>
+                <p className="text-2xl sm:text-3xl font-extrabold text-foreground truncate">
                   {analytics?.total_notes}
                 </p>
-                <span className="text-[10px] text-foreground-muted mt-1 block">Scanned materials</span>
+                <span className="text-[10px] text-foreground-muted mt-1 block truncate">Scanned materials</span>
               </div>
 
-              <div className="glass-card p-4">
-                <span className="text-xs font-medium text-foreground-muted block mb-1">Active Streak</span>
-                <p className="text-2xl sm:text-3xl font-extrabold text-emerald-400">
+              <div className="glass-card p-4 min-w-0 overflow-hidden">
+                <span className="text-xs font-medium text-foreground-muted block mb-1 truncate">Active Streak</span>
+                <p className="text-2xl sm:text-3xl font-extrabold text-emerald-400 truncate">
                   {analytics?.study_streak_days} Days
                 </p>
-                <span className="text-[10px] text-foreground-muted mt-1 block">Consistent study habit</span>
+                <span className="text-[10px] text-foreground-muted mt-1 block truncate">Consistent study habit</span>
               </div>
             </div>
 
             {/* Recommendations & Weak Concepts */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6 min-w-0">
               {/* Weak Concepts Card */}
-              <div className="glass-card p-5 border-l-4 border-l-amber-500 flex flex-col justify-between">
+              <div className="glass-card p-4 sm:p-5 border-l-4 border-l-amber-500 flex flex-col justify-between min-w-0">
                 <div>
                   <h3 className="text-sm font-bold text-foreground mb-1 flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4 text-amber-400" />
+                    <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
                     <span>Frequently Missed Concepts</span>
                   </h3>
                   <p className="text-[11px] text-foreground-muted mb-4">
@@ -130,10 +136,10 @@ export const AnalyticsPage: React.FC = () => {
                       analytics.weak_topics.map((topic, idx) => (
                         <div
                           key={idx}
-                          className="p-2.5 rounded-lg bg-surface border border-border text-xs flex items-center justify-between"
+                          className="p-2.5 rounded-lg bg-surface border border-border text-xs flex items-center justify-between gap-2 min-w-0"
                         >
-                          <span className="font-medium text-foreground">{topic}</span>
-                          <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">
+                          <span className="font-medium text-foreground truncate">{topic}</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold shrink-0">
                             Needs Review
                           </span>
                         </div>
@@ -149,7 +155,7 @@ export const AnalyticsPage: React.FC = () => {
                     <span className="text-[10px] uppercase font-bold text-secondary block mb-1">
                       Action Recommendation
                     </span>
-                    <p className="text-xs text-foreground-muted font-medium">
+                    <p className="text-xs text-foreground-muted font-medium break-words">
                       {analytics.recommended_revision}
                     </p>
                   </div>
@@ -157,15 +163,23 @@ export const AnalyticsPage: React.FC = () => {
               </div>
 
               {/* Subject Breakdown Chart */}
-              <div className="glass-card p-5">
-                <h3 className="text-sm font-bold text-foreground mb-1">Subject Performance</h3>
-                <p className="text-[11px] text-foreground-muted mb-4">Accuracy percentages across enrolled subjects</p>
+              <div className="glass-card p-4 sm:p-5 min-w-0 overflow-hidden flex flex-col justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-foreground mb-1">Subject Performance</h3>
+                  <p className="text-[11px] text-foreground-muted mb-4">Accuracy percentages across enrolled subjects</p>
+                </div>
 
-                <div className="h-52 w-full">
+                <div className="h-56 w-full min-w-0 overflow-hidden relative">
                   {analytics?.subject_performance && analytics.subject_performance.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={analytics.subject_performance} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                        <XAxis dataKey="subject" stroke="#64748B" fontSize={11} tickLine={false} />
+                        <XAxis
+                          dataKey="subject"
+                          stroke="#64748B"
+                          fontSize={11}
+                          tickLine={false}
+                          tickFormatter={(val) => truncateLabel(val, 12)}
+                        />
                         <YAxis stroke="#64748B" fontSize={11} domain={[0, 100]} />
                         <Tooltip
                           contentStyle={{ backgroundColor: '#11162A', borderColor: '#2e303a', borderRadius: '8px', fontSize: '12px' }}
@@ -183,7 +197,7 @@ export const AnalyticsPage: React.FC = () => {
             </div>
 
             {/* Recent Assessment Attempts Log */}
-            <div className="glass-card p-5">
+            <div className="glass-card p-4 sm:p-5 min-w-0">
               <h3 className="text-sm font-bold text-foreground mb-1">Recent Quiz Attempts</h3>
               <p className="text-[11px] text-foreground-muted mb-4">Chronological log of verified student attempts</p>
 
@@ -192,21 +206,21 @@ export const AnalyticsPage: React.FC = () => {
                   analytics.recent_activity.map((act, idx) => (
                     <div
                       key={idx}
-                      className="p-3 rounded-xl bg-surface border border-border flex items-center justify-between text-xs"
+                      className="p-3 rounded-xl bg-surface border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs min-w-0"
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
                         <div
-                          className={`w-2.5 h-2.5 rounded-full ${
+                          className={`w-2.5 h-2.5 rounded-full shrink-0 ${
                             act.passed ? 'bg-emerald-400' : 'bg-amber-400'
                           }`}
                         />
-                        <div>
-                          <p className="font-semibold text-foreground">{act.topic || 'General Practice'}</p>
-                          <span className="text-[10px] text-foreground-muted">{act.subject}</span>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-foreground truncate">{act.topic || 'General Practice'}</p>
+                          <span className="text-[10px] text-foreground-muted truncate block">{act.subject}</span>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-1 sm:pt-0 border-t sm:border-0 border-border/40">
                         <span className="font-bold text-foreground">{act.score_percentage}%</span>
                         <span
                           className={`px-2 py-0.5 rounded text-[10px] font-bold ${
