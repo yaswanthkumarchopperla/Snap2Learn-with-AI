@@ -27,3 +27,9 @@ Thumbs.db
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Runtime Uploads & Local Storage
+backend/data/uploads/
+backend/data/*.json
+backend/data/*.tmp
+*.pdf

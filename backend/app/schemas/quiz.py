@@ -65,3 +65,33 @@ class QuizSubmitResponse(BaseModel):
     question_reviews: list[QuestionReview]
     weak_topics: list[str]
     revision_recommendation: str
+
+class QuizProgressRequest(BaseModel):
+    quiz_id: str
+    answers: dict[str, int] = Field(default_factory=dict, description="Map of question_id to selected option index")
+    current_question_index: int = Field(0, ge=0)
+    time_taken_seconds: int = Field(0, ge=0)
+    is_completed: bool = False
+    title: Optional[str] = None
+    subject: Optional[str] = None
+    topic: Optional[str] = None
+    difficulty: Optional[str] = None
+    total_questions: Optional[int] = None
+    questions: Optional[list[QuestionClientView]] = None
+    user_id: Optional[str] = None
+
+class ActiveQuizResponse(BaseModel):
+    has_active_quiz: bool
+    quiz_id: Optional[str] = None
+    title: Optional[str] = None
+    subject: Optional[str] = None
+    topic: Optional[str] = None
+    difficulty: Optional[str] = None
+    total_questions: Optional[int] = None
+    questions: list[QuestionClientView] = Field(default_factory=list)
+    answers: dict[str, int] = Field(default_factory=dict)
+    current_question_index: int = 0
+    time_taken_seconds: int = 0
+    is_completed: bool = False
+    updated_at: Optional[str] = None
+

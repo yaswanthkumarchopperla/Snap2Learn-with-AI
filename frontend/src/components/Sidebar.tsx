@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import LineSidebar from './LineSidebar';
+import { AutosaveIndicator } from './AutosaveIndicator';
 
 interface SidebarProps {
   children?: React.ReactNode;
@@ -89,9 +90,12 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
             </span>
           </div>
         </div>
-        <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-semibold border border-emerald-500/20">
-          Verified Student
-        </span>
+        <div className="flex items-center gap-2">
+          <AutosaveIndicator compact />
+          <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-semibold border border-emerald-500/20">
+            Verified Student
+          </span>
+        </div>
       </header>
 
       {/* Mobile Backdrop Overlay */}
@@ -197,6 +201,12 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
               }}
             />
           </div>
+        </div>
+
+        {/* Autosave Sync Status Badge */}
+        <div className="px-4 py-2 border-t border-border/50 bg-surface/50 flex items-center justify-between">
+          <span className="text-[10px] text-foreground-muted font-medium">Auto-Save Sync</span>
+          <AutosaveIndicator compact={true} />
         </div>
 
         {/* User Card & Logout Footer */}

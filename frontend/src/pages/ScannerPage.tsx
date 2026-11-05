@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import {
   Camera,
@@ -26,15 +26,29 @@ import {
   RotateCcw,
   CheckCircle,
   FileText,
-  Info
+  Info,
+  History,
+  Play,
+  Pause,
+  Download,
+  FileType,
+  FileCheck,
+  Eye
 } from 'lucide-react';
 import { SidebarLayout } from '../components/Sidebar';
 import { CameraCapture } from '../components/CameraCapture';
 import { MathRenderer } from '../components/MathRenderer';
+import { MarkdownViewer } from '../components/MarkdownViewer';
+import { AutosaveIndicator } from '../components/AutosaveIndicator';
+import { useAutosave } from '../contexts/AutosaveContext';
 import { api } from '../services/api';
+import { useQuizTimer } from '../hooks/useQuizTimer';
+import { getQuizDurationSeconds, formatQuizTime } from '../config/quizConfig';
 import {
   ScanResponse,
+  ScanHistoryItem,
   ExplainResponse,
+  PdfProcessResponse,
   ExplanationMode,
   Language,
   Difficulty,
@@ -55,13 +69,27 @@ const STEPS = [
 
 export const ScannerPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const { triggerAutosave } = useAutosave();
+
+  const searchParams = new URLSearchParams(location.search);
+  const searchStep = Number(searchParams.get('step')) as StepNumber;
+  const initialStep = (searchStep >= 1 && searchStep <= 5) ? searchStep : (location.state?.step as StepNumber) || 1;
+  const initialText = location.state?.text || 'Let A be an n x n square matrix with eigenvalue lambda and non-zero eigenvector v such that A v = lambda v. Trace equals sum of eigenvalues and determinant equals product of eigenvalues.';
+  const initialSubject = location.state?.subject || 'Engineering Mathematics';
+  const initialTopic = location.state?.topic || 'Eigenvalues & Vectors';
 
   // Stepper state
-  const [currentStep, setCurrentStep] = useState<StepNumber>(1);
-  const [maxStepReached, setMaxStepReached] = useState<StepNumber>(1);
+  const [currentStep, setCurrentStep] = useState<StepNumber>(initialStep);
+  const [maxStepReached, setMaxStepReached] = useState<StepNumber>(initialStep);
 
-  // Step 1: Camera & Image state
+  // Autosave and History tracking
+  const [autoSavedNoteId, setAutoSavedNoteId] = useState<string | null>(null);
+  const [scanHistory, setScanHistory] = useState<ScanHistoryItem[]>([]);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+
+  // Step 1: Camera, Image & PDF state
   const [showCamera, setShowCamera] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -69,12 +97,19 @@ export const ScannerPage: React.FC = () => {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [subjectHint, setSubjectHint] = useState('');
+  const [uploadFilter, setUploadFilter] = useState<'all' | 'image' | 'pdf'>('all');
+  const [isPdf, setIsPdf] = useState(false);
+  const [pdfPageRange, setPdfPageRange] = useState('all');
+  const [pdfRangePreset, setPdfRangePreset] = useState<'all' | 'custom'>('all');
+  const [pdfProcessData, setPdfProcessData] = useState<PdfProcessResponse | null>(null);
+  const [viewModeStep2, setViewModeStep2] = useState<'rendered' | 'raw'>('rendered');
+  const pdfInputRef = useRef<HTMLInputElement | null>(null);
 
   // Step 2: OCR Extraction state
   const [scanResult, setScanResult] = useState<ScanResponse | null>(null);
-  const [editedText, setEditedText] = useState('');
-  const [editedSubject, setEditedSubject] = useState('');
-  const [editedTopic, setEditedTopic] = useState('');
+  const [editedText, setEditedText] = useState(initialText);
+  const [editedSubject, setEditedSubject] = useState(initialSubject);
+  const [editedTopic, setEditedTopic] = useState(initialTopic);
 
   // Step 3: Explanation state
   const [explainMode, setExplainMode] = useState<ExplanationMode>('standard');
@@ -94,12 +129,16 @@ export const ScannerPage: React.FC = () => {
   const [quizError, setQuizError] = useState<string | null>(null);
   const [currentQIndex, setCurrentQIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, number>>({});
-  const [quizSeconds, setQuizSeconds] = useState(0);
-  const timerRef = useRef<any>(null);
 
   // Step 5: Submission state
   const [isSubmittingQuiz, setIsSubmittingQuiz] = useState(false);
   const [quizResult, setQuizResult] = useState<QuizSubmitResponse | null>(null);
+
+  // References to avoid stale closures in timer expiration callback
+  const quizDataRef = useRef<QuizGenerateResponse | null>(null);
+  quizDataRef.current = quizData;
+  const selectedAnswersRef = useRef<Record<string, number>>({});
+  selectedAnswersRef.current = selectedAnswers;
 
   // Keep max reached step updated
   const goToStep = (step: StepNumber) => {
@@ -109,19 +148,57 @@ export const ScannerPage: React.FC = () => {
     }
   };
 
-  // Timer runner for quiz
-  useEffect(() => {
-    if (currentStep === 4 && quizData && !quizResult) {
-      timerRef.current = setInterval(() => {
-        setQuizSeconds((s) => s + 1);
-      }, 1000);
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current);
+  // Submit Quiz handler forward declaration for timer expiration
+  const handleSubmitQuiz = useCallback(async (isTimeout: boolean = false) => {
+    const activeQuiz = quizDataRef.current;
+    if (!activeQuiz) return;
+    stopQuizTimer();
+    setIsSubmittingQuiz(true);
+    setQuizError(null);
+
+    try {
+      const result = await api.submitQuiz({
+        quiz_id: activeQuiz.quiz_id,
+        answers: selectedAnswersRef.current,
+        time_taken_seconds: quizTimeTaken,
+      });
+      setQuizResult(result);
+      goToStep(5);
+
+      if (result.passed) {
+        confetti({
+          particleCount: 100,
+          spread: 75,
+          origin: { y: 0.6 },
+          colors: ['#7559FF', '#22D3EE', '#A855F7', '#10B981'],
+        });
+      }
+    } catch (err: any) {
+      console.error('Quiz submit error:', err);
+      setQuizError(err.message || 'Failed to submit quiz. Please try again.');
+    } finally {
+      setIsSubmittingQuiz(false);
     }
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [currentStep, quizData, quizResult]);
+  }, []);
+
+  // Reliable countdown timer based on absolute end timestamp
+  const {
+    remainingSeconds: quizRemainingSeconds,
+    totalDurationSeconds: quizTotalDuration,
+    timeTakenSeconds: quizTimeTaken,
+    isRunning: isQuizTimerRunning,
+    isPaused: isQuizTimerPaused,
+    formattedTime: formattedQuizTimer,
+    startTimer: startQuizTimer,
+    pauseTimer: pauseQuizTimer,
+    resumeTimer: resumeQuizTimer,
+    stopTimer: stopQuizTimer,
+    resetTimer: resetQuizTimer,
+  } = useQuizTimer({
+    onTimeExpired: () => {
+      handleSubmitQuiz(true);
+    },
+  });
 
   // Cleanup preview URL on unmount
   useEffect(() => {
@@ -132,20 +209,59 @@ export const ScannerPage: React.FC = () => {
     };
   }, [previewUrl]);
 
+  // Load scan history on mount
+  useEffect(() => {
+    api.getScanHistory().then((data) => {
+      if (Array.isArray(data)) setScanHistory(data);
+    }).catch(() => {});
+  }, []);
+
+  // Debounced autosave for note edits in Step 2 & Step 3
+  useEffect(() => {
+    if (!autoSavedNoteId || !editedText.trim()) return;
+    const timer = setTimeout(() => {
+      triggerAutosave(async () => {
+        return await api.updateNote(autoSavedNoteId, {
+          title: editedTopic || editedSubject || 'Scanned Study Notes',
+          subject: editedSubject || 'Engineering',
+          topic: editedTopic || 'Core Lecture Notes',
+          raw_text: editedText,
+          summary: explanation?.short_summary,
+          telugu_summary: explanation?.telugu_summary,
+        });
+      }, {
+        type: 'note',
+        action: 'update',
+        endpoint: `/api/notes/${autoSavedNoteId}`,
+        payload: {
+          id: autoSavedNoteId,
+          title: editedTopic || editedSubject || 'Scanned Study Notes',
+          subject: editedSubject || 'Engineering',
+          topic: editedTopic || 'Core Lecture Notes',
+          raw_text: editedText,
+        }
+      });
+    }, 750);
+    return () => clearTimeout(timer);
+  }, [editedText, editedSubject, editedTopic, autoSavedNoteId, explanation]);
+
   // -------------------------------------------------------------
-  // STEP 1 HANDLERS: File Selection & Camera
+  // STEP 1 HANDLERS: File Selection, PDF & Camera
   // -------------------------------------------------------------
   const validateAndSetFile = (file: File) => {
     setUploadError(null);
-    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    const isPdfFile = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    const validImageTypes = ['image/jpeg', 'image/png', 'image/webp'];
 
-    if (!validTypes.includes(file.type)) {
-      setUploadError(`Unsupported file format (${file.type || 'unknown'}). Please upload a JPEG, PNG, or WebP image.`);
+    if (!isPdfFile && !validImageTypes.includes(file.type)) {
+      setUploadError(`Unsupported file format (${file.type || 'unknown'}). Please upload a PDF, JPEG, PNG, or WebP document.`);
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      setUploadError(`File is too large (${(file.size / (1024 * 1024)).toFixed(1)}MB). Maximum allowed size is 10MB.`);
+    const maxSize = isPdfFile ? 25 * 1024 * 1024 : 10 * 1024 * 1024;
+    const maxMb = isPdfFile ? 25 : 10;
+    if (file.size > maxSize) {
+      setUploadError(`File is too large (${(file.size / (1024 * 1024)).toFixed(1)}MB). Maximum allowed size for ${isPdfFile ? 'PDFs' : 'images'} is ${maxMb}MB.`);
       return;
     }
 
@@ -153,16 +269,24 @@ export const ScannerPage: React.FC = () => {
       URL.revokeObjectURL(previewUrl);
     }
 
-    const url = URL.createObjectURL(file);
-    setSelectedFile(file);
-    setPreviewUrl(url);
+    if (isPdfFile) {
+      setIsPdf(true);
+      setPreviewUrl(null);
+      setSelectedFile(file);
+      setPdfPageRange('all');
+      setPdfRangePreset('all');
+    } else {
+      setIsPdf(false);
+      const url = URL.createObjectURL(file);
+      setSelectedFile(file);
+      setPreviewUrl(url);
+    }
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       validateAndSetFile(e.target.files[0]);
     }
-    // Reset file input value so selecting the same file again triggers onChange
     e.target.value = '';
   };
 
@@ -187,31 +311,41 @@ export const ScannerPage: React.FC = () => {
   const handleCameraCapture = (file: File, url: string) => {
     setShowCamera(false);
     setUploadError(null);
+    setIsPdf(false);
     setSelectedFile(file);
     setPreviewUrl(url);
   };
 
-  const handleRemoveImage = () => {
+  const handleRemoveFile = () => {
     if (previewUrl && previewUrl.startsWith('blob:')) {
       URL.revokeObjectURL(previewUrl);
     }
     setSelectedFile(null);
     setPreviewUrl(null);
+    setIsPdf(false);
+    setPdfProcessData(null);
     setUploadError(null);
   };
 
   // Instant Engineering Sample loader
   const handleLoadSample = () => {
     const sampleText =
-      'Let A be an n × n square matrix over field F. A scalar λ is an eigenvalue of A if there exists a non-zero column vector v such that:\n\n' +
-      '$$A v = \\lambda v$$\n\n' +
-      'Rearranging gives $$(A - \\lambda I) v = 0$$. Since $v \\neq 0$, the matrix must be singular:\n\n' +
-      '$$\\det(A - \\lambda I) = 0$$\n\n' +
-      'This polynomial equation is called the Characteristic Equation. Roots are eigenvalues. Sum of eigenvalues equals the trace of A, and product equals the determinant of A.';
+      '# Characteristic Equation & Eigenvalues\n\n' +
+      'Let $A$ be an $n \\times n$ square matrix over field $\\mathbb{R}$. A scalar $\\lambda$ is an eigenvalue of $A$ if there exists a non-zero column vector $v$ such that:\n\n' +
+      '$$\\[ A v = \\lambda v \\]$$\n\n' +
+      'Rearranging gives $(A - \\lambda I) v = 0$. Since $v \\neq 0$, the matrix must be singular:\n\n' +
+      '$$\\[ \\det(A - \\lambda I) = 0 \\]$$\n\n' +
+      'This polynomial equation is called the Characteristic Equation. Roots are eigenvalues.\n\n' +
+      '| Property | Mathematical Rule |\n' +
+      '|---|---|\n' +
+      '| Trace Rule | $\\sum \\lambda_i = \\text{tr}(A)$ |\n' +
+      '| Determinant Rule | $\\prod \\lambda_i = \\det(A)$ |\n' +
+      '| Angular Frequency | $\\omega = 2\\pi f$ |';
 
     setEditedText(sampleText);
     setEditedSubject('Engineering Mathematics');
     setEditedTopic('Eigenvalues & Characteristic Equation');
+    setIsPdf(false);
     setScanResult({
       text: sampleText,
       subject: 'Engineering Mathematics',
@@ -224,28 +358,138 @@ export const ScannerPage: React.FC = () => {
     goToStep(2);
   };
 
-  // Send photo to POST /api/scan
+  // Extract Notes (handles both Image Scan & Multi-page PDF Processing)
   const handleExtractNotes = async () => {
     if (!selectedFile) {
-      setUploadError('Please select or capture an image first.');
+      setUploadError('Please select or capture a study document first.');
       return;
     }
 
     setIsScanning(true);
     setUploadError(null);
 
+    const isPdfDoc = isPdf || selectedFile.type === 'application/pdf' || selectedFile.name.toLowerCase().endsWith('.pdf');
+
     try {
-      const result = await api.scanImage(selectedFile, subjectHint || undefined);
-      setScanResult(result);
-      setEditedText(result.text);
-      setEditedSubject(result.subject);
-      setEditedTopic(result.topic);
+      if (isPdfDoc) {
+        // PDF Processing pipeline
+        const range = pdfRangePreset === 'all' ? 'all' : (pdfPageRange || 'all');
+        const pdfResult = await api.uploadPdf(selectedFile, range, subjectHint || undefined);
+
+        setPdfProcessData(pdfResult);
+        setIsPdf(true);
+        setEditedText(pdfResult.extracted_markdown);
+        setEditedSubject(pdfResult.subject);
+        setEditedTopic(pdfResult.topic);
+
+        setScanResult({
+          text: pdfResult.extracted_markdown,
+          subject: pdfResult.subject,
+          topic: pdfResult.topic,
+          confidence: `High (${pdfResult.page_count} PDF Pages processed)`,
+          uncertain_segments: [],
+          is_demo: false,
+        });
+
+        // Autosave newly extracted PDF note
+        const note = await triggerAutosave(async () => {
+          return await api.createNote({
+            title: pdfResult.topic || pdfResult.subject || 'PDF Lecture Notes',
+            subject: pdfResult.subject || 'Engineering',
+            topic: pdfResult.topic || 'Core Lecture Notes',
+            raw_text: pdfResult.extracted_markdown,
+          });
+        }, {
+          type: 'note',
+          action: 'create',
+          endpoint: '/api/notes',
+          payload: {
+            title: pdfResult.topic || pdfResult.subject || 'PDF Lecture Notes',
+            subject: pdfResult.subject || 'Engineering',
+            topic: pdfResult.topic || 'Core Lecture Notes',
+            raw_text: pdfResult.extracted_markdown,
+          }
+        });
+        if (note) setAutoSavedNoteId(note.id);
+
+      } else {
+        // Standard Image Scan pipeline
+        const result = await api.scanImage(selectedFile, subjectHint || undefined);
+        setScanResult(result);
+        setEditedText(result.text);
+        setEditedSubject(result.subject);
+        setEditedTopic(result.topic);
+        setIsPdf(false);
+
+        // Autosave newly extracted note
+        const note = await triggerAutosave(async () => {
+          return await api.createNote({
+            title: result.topic || result.subject || 'Scanned Study Notes',
+            subject: result.subject || 'Computer Science & Engineering',
+            topic: result.topic || 'Core Lecture Notes',
+            raw_text: result.text,
+          });
+        }, {
+          type: 'note',
+          action: 'create',
+          endpoint: '/api/notes',
+          payload: {
+            title: result.topic || result.subject || 'Scanned Study Notes',
+            subject: result.subject || 'Computer Science & Engineering',
+            topic: result.topic || 'Core Lecture Notes',
+            raw_text: result.text,
+          }
+        });
+        if (note) setAutoSavedNoteId(note.id);
+      }
+
+      // Refresh scan history
+      api.getScanHistory().then((data) => {
+        if (Array.isArray(data)) setScanHistory(data);
+      }).catch(() => {});
+
       goToStep(2);
     } catch (err: any) {
       console.error('Extraction error:', err);
-      setUploadError(err.message || 'Failed to extract text from image. Please ensure the backend server is running and try again.');
+      setUploadError(err.message || 'Failed to extract text. Please ensure the backend server is running and try again.');
     } finally {
       setIsScanning(false);
+    }
+  };
+
+  // Download converted Markdown file (.md)
+  const handleDownloadMarkdown = () => {
+    try {
+      const blob = new Blob([editedText], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const cleanName = (editedTopic || editedSubject || 'study_notes').replace(/[^a-zA-Z0-9_-]/g, '_');
+      a.download = `${cleanName}.md`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('Download markdown failed:', e);
+    }
+  };
+
+  // Download original PDF file
+  const handleDownloadOriginalPdf = async () => {
+    if (!pdfProcessData?.doc_id) return;
+    try {
+      const blob = await api.downloadOriginalPdf(pdfProcessData.doc_id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = pdfProcessData.file_name || 'document.pdf';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('Download original PDF failed:', e);
     }
   };
 
@@ -282,6 +526,16 @@ export const ScannerPage: React.FC = () => {
         language,
       });
       setExplanation(data);
+
+      // Autosave generated summaries to note
+      if (autoSavedNoteId) {
+        triggerAutosave(async () => {
+          return await api.updateNote(autoSavedNoteId, {
+            summary: data.short_summary,
+            telugu_summary: data.telugu_summary,
+          });
+        });
+      }
     } catch (err: any) {
       console.error('Explanation error:', err);
       setExplainError(err.message || 'Failed to generate explanation. Please try again.');
@@ -343,13 +597,16 @@ export const ScannerPage: React.FC = () => {
   };
 
   const triggerQuizGeneration = async (num: number, diff: Difficulty, isRetake: boolean = false) => {
+    // 5. Keep the quiz timer completely stopped during question generation
+    stopQuizTimer();
+    resetQuizTimer();
+    setQuizData(null); // Clear previous quiz data so no timer can run
     setIsGeneratingQuiz(true);
     setIsRetakeMode(isRetake);
     setQuizError(null);
     setQuizResult(null);
     setSelectedAnswers({});
     setCurrentQIndex(0);
-    setQuizSeconds(0);
 
     try {
       const data = await api.generateQuiz({
@@ -360,9 +617,15 @@ export const ScannerPage: React.FC = () => {
         difficulty: diff,
         is_retake: isRetake,
       });
+      // 6 & 7. Wait until all questions are successfully generated and rendered
       setQuizData(data);
+
+      // 8. Start the countdown timer only when the first question is visible and the quiz is ready
+      const allocatedDuration = getQuizDurationSeconds(num, diff);
+      startQuizTimer(allocatedDuration);
     } catch (err: any) {
       console.error('Quiz generation error:', err);
+      // 4. If generation fails: stop loading state, do not start timer, show error
       setQuizError(err.message || 'Failed to generate quiz. Please try again.');
     } finally {
       setIsGeneratingQuiz(false);
@@ -370,39 +633,31 @@ export const ScannerPage: React.FC = () => {
   };
 
   const handleSelectOption = (qId: string, optIndex: number) => {
-    setSelectedAnswers((prev) => ({
-      ...prev,
+    const newAnswers = {
+      ...selectedAnswers,
       [qId]: optIndex,
-    }));
-  };
+    };
+    setSelectedAnswers(newAnswers);
 
-  const handleSubmitQuiz = async () => {
-    if (!quizData) return;
-    setIsSubmittingQuiz(true);
-    setQuizError(null);
-
-    try {
-      const result = await api.submitQuiz({
-        quiz_id: quizData.quiz_id,
-        answers: selectedAnswers,
-        time_taken_seconds: quizSeconds,
-      });
-      setQuizResult(result);
-      goToStep(5);
-
-      if (result.passed) {
-        confetti({
-          particleCount: 100,
-          spread: 75,
-          origin: { y: 0.6 },
-          colors: ['#7559FF', '#22D3EE', '#A855F7', '#10B981'],
+    if (quizData) {
+      triggerAutosave(async () => {
+        return await api.saveQuizProgress({
+          quiz_id: quizData.quiz_id,
+          answers: newAnswers,
+          current_question_index: currentQIndex,
+          time_taken_seconds: quizTimeTaken,
         });
-      }
-    } catch (err: any) {
-      console.error('Quiz submit error:', err);
-      setQuizError(err.message || 'Failed to submit quiz. Please try again.');
-    } finally {
-      setIsSubmittingQuiz(false);
+      }, {
+        type: 'quiz_progress',
+        action: 'update',
+        endpoint: `/api/quiz/${quizData.quiz_id}/progress`,
+        payload: {
+          quiz_id: quizData.quiz_id,
+          answers: newAnswers,
+          current_question_index: currentQIndex,
+          time_taken_seconds: quizTimeTaken,
+        }
+      });
     }
   };
 
@@ -429,7 +684,18 @@ export const ScannerPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 self-start sm:self-auto">
+          <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+            <AutosaveIndicator compact={false} />
+            {scanHistory.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowHistoryModal(!showHistoryModal)}
+                className="px-3.5 py-2 rounded-xl bg-surface border border-border text-foreground hover:border-secondary/40 text-xs font-semibold hover:bg-surface-hover transition-colors flex items-center gap-1.5 shadow-xs"
+              >
+                <History className="w-3.5 h-3.5 text-secondary" />
+                <span>Recent Scans ({scanHistory.length})</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={handleLoadSample}
@@ -440,6 +706,57 @@ export const ScannerPage: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* Recent Scans Revisit Drawer */}
+        {showHistoryModal && (
+          <div className="glass-card p-4 sm:p-5 border border-secondary/30 space-y-3 animate-in fade-in slide-in-from-top-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <History className="w-4 h-4 text-secondary" />
+                <h3 className="text-sm font-bold text-foreground">Recent Scans History</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowHistoryModal(false)}
+                className="text-xs text-foreground-muted hover:text-foreground cursor-pointer"
+              >
+                Close ✕
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-60 overflow-y-auto">
+              {scanHistory.map((item) => (
+                <div
+                  key={item.id}
+                  onClick={() => {
+                    setEditedText(item.text);
+                    setEditedSubject(item.subject);
+                    setEditedTopic(item.topic);
+                    setScanResult({
+                      scan_id: item.id,
+                      text: item.text,
+                      subject: item.subject,
+                      topic: item.topic,
+                      confidence: item.confidence,
+                      uncertain_segments: item.uncertain_segments || [],
+                      is_demo: false,
+                      created_at: item.created_at
+                    });
+                    setShowHistoryModal(false);
+                    goToStep(2);
+                  }}
+                  className="p-3 rounded-xl bg-surface hover:bg-surface-elevated border border-border hover:border-secondary/50 cursor-pointer transition-all space-y-1.5"
+                >
+                  <div className="flex items-center justify-between text-[10px]">
+                    <span className="font-semibold text-secondary">{item.subject}</span>
+                    <span className="text-foreground-muted">{new Date(item.created_at).toLocaleDateString()}</span>
+                  </div>
+                  <h4 className="text-xs font-bold text-foreground line-clamp-1">{item.topic || 'Untitled Scan'}</h4>
+                  <p className="text-[11px] text-foreground-muted line-clamp-2">{item.text}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* --------------------------------------------------------- */}
         {/* MODERN STEPPER: Desktop Horizontal / Mobile Compact       */}
@@ -577,11 +894,18 @@ export const ScannerPage: React.FC = () => {
               </div>
             )}
 
-            {/* Hidden file input */}
+            {/* Hidden file inputs */}
             <input
               type="file"
               ref={fileInputRef}
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/jpeg,image/png,image/webp,application/pdf,.pdf"
+              className="hidden"
+              onChange={handleFileInputChange}
+            />
+            <input
+              type="file"
+              ref={pdfInputRef}
+              accept="application/pdf,.pdf"
               className="hidden"
               onChange={handleFileInputChange}
             />
@@ -594,8 +918,45 @@ export const ScannerPage: React.FC = () => {
                     Provide Your Study Material
                   </h2>
                   <p className="text-xs sm:text-sm text-foreground-muted">
-                    Snap textbook pages, lecture notes, or handwritten formulas using your webcam, or upload an image file.
+                    Upload a lecture PDF, snap textbook photos with your webcam, or drag & drop files to extract notes, tables, and formulas.
                   </p>
+                </div>
+
+                {/* Upload Format Filter Tabs */}
+                <div className="flex items-center justify-center gap-1.5 max-w-sm mx-auto p-1 rounded-xl bg-surface border border-border">
+                  <button
+                    type="button"
+                    onClick={() => setUploadFilter('all')}
+                    className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all ${
+                      uploadFilter === 'all'
+                        ? 'bg-gradient-to-r from-primary to-secondary text-white shadow-xs'
+                        : 'text-foreground-muted hover:text-foreground'
+                    }`}
+                  >
+                    All Formats
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUploadFilter('image')}
+                    className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all ${
+                      uploadFilter === 'image'
+                        ? 'bg-gradient-to-r from-primary to-secondary text-white shadow-xs'
+                        : 'text-foreground-muted hover:text-foreground'
+                    }`}
+                  >
+                    Photo Scan
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUploadFilter('pdf')}
+                    className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all ${
+                      uploadFilter === 'pdf'
+                        ? 'bg-gradient-to-r from-primary to-secondary text-white shadow-xs'
+                        : 'text-foreground-muted hover:text-foreground'
+                    }`}
+                  >
+                    PDF Document
+                  </button>
                 </div>
 
                 {/* Subject hint input */}
@@ -605,7 +966,7 @@ export const ScannerPage: React.FC = () => {
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. Linear Algebra, Operating Systems, Machine Learning"
+                    placeholder="e.g. AC Circuits, Linear Algebra, Operating Systems"
                     value={subjectHint}
                     onChange={(e) => setSubjectHint(e.target.value)}
                     className="w-full px-4 py-2.5 rounded-xl bg-surface border border-border text-xs text-foreground placeholder:text-foreground-muted/60 focus:outline-none focus:border-secondary transition-colors"
@@ -624,35 +985,58 @@ export const ScannerPage: React.FC = () => {
                   }`}
                 >
                   <div className="w-16 h-16 rounded-2xl bg-surface-elevated border border-border flex items-center justify-center text-secondary mx-auto mb-4 shadow-sm">
-                    <FileImage className="w-8 h-8" />
+                    {uploadFilter === 'pdf' ? (
+                      <FileType className="w-8 h-8 text-rose-400" />
+                    ) : (
+                      <UploadCloud className="w-8 h-8 text-secondary" />
+                    )}
                   </div>
 
                   <p className="text-sm font-semibold text-foreground mb-1">
-                    Drag and drop your study photo here
+                    {uploadFilter === 'pdf'
+                      ? 'Drag and drop your PDF document here'
+                      : uploadFilter === 'image'
+                      ? 'Drag and drop your study photo here'
+                      : 'Drag and drop study photo or PDF document here'}
                   </p>
                   <p className="text-xs text-foreground-muted mb-6">
-                    Supports JPEG, PNG, or WebP (Max 10MB)
+                    Supports JPG, PNG, WEBP, and multi-page PDF (Max 25MB)
                   </p>
 
                   {/* Primary Action Buttons */}
                   <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setShowCamera(true)}
-                      className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-primary to-secondary text-white font-semibold text-xs shadow-lg glow-primary hover:opacity-95 transition-all flex items-center justify-center gap-2"
-                    >
-                      <Camera className="w-4 h-4" />
-                      <span>Open Camera</span>
-                    </button>
+                    {uploadFilter !== 'pdf' && (
+                      <button
+                        type="button"
+                        onClick={() => setShowCamera(true)}
+                        className="w-full sm:w-auto px-5 py-3 rounded-xl bg-gradient-to-r from-primary to-secondary text-white font-semibold text-xs shadow-lg glow-primary hover:opacity-95 transition-all flex items-center justify-center gap-2"
+                      >
+                        <Camera className="w-4 h-4" />
+                        <span>Open Camera</span>
+                      </button>
+                    )}
 
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="w-full sm:w-auto px-6 py-3 rounded-xl bg-surface-elevated hover:bg-surface-hover text-foreground font-semibold text-xs border border-border transition-colors flex items-center justify-center gap-2"
-                    >
-                      <UploadCloud className="w-4 h-4 text-secondary" />
-                      <span>Upload Photo</span>
-                    </button>
+                    {uploadFilter !== 'pdf' && (
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-full sm:w-auto px-5 py-3 rounded-xl bg-surface-elevated hover:bg-surface-hover text-foreground font-semibold text-xs border border-border transition-colors flex items-center justify-center gap-2"
+                      >
+                        <FileImage className="w-4 h-4 text-secondary" />
+                        <span>Upload Photo</span>
+                      </button>
+                    )}
+
+                    {uploadFilter !== 'image' && (
+                      <button
+                        type="button"
+                        onClick={() => pdfInputRef.current?.click()}
+                        className="w-full sm:w-auto px-5 py-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 font-semibold text-xs border border-rose-500/30 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <FileType className="w-4 h-4 text-rose-400" />
+                        <span>Upload PDF</span>
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -660,8 +1044,166 @@ export const ScannerPage: React.FC = () => {
                 <div className="max-w-xl mx-auto p-4 rounded-xl bg-surface border border-border text-xs text-foreground-muted flex items-start gap-3">
                   <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                   <p>
-                    <strong className="text-foreground">Camera Privacy:</strong> Webcams are accessed strictly on user click via standard Web APIs and all media tracks are immediately stopped upon closing.
+                    <strong className="text-foreground">Student Data Privacy:</strong> Documents and camera streams are processed securely with end-to-end user isolation. Files are preserved for your account only.
                   </p>
+                </div>
+              </div>
+            ) : isPdf ? (
+              /* Selected PDF Document Preview Card */
+              <div className="glass-card p-6 sm:p-8 space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase bg-rose-500/15 text-rose-400 border border-rose-500/30">
+                        PDF Document
+                      </span>
+                      <h2 className="text-lg font-bold text-foreground">Selected Study PDF</h2>
+                    </div>
+                    <p className="text-xs text-foreground-muted mt-0.5">
+                      Extract text, tables, and LaTeX math. Select page range or process the full document.
+                    </p>
+                  </div>
+
+                  {/* Metadata pill */}
+                  <div className="flex items-center gap-2 text-xs text-foreground-muted">
+                    <span className="px-2.5 py-1 rounded-lg bg-surface border border-border font-medium text-foreground">
+                      {selectedFile.name}
+                    </span>
+                    <span className="px-2 py-1 rounded-lg bg-surface border border-border">
+                      {(selectedFile.size / (1024 * 1024)).toFixed(1)} MB
+                    </span>
+                  </div>
+                </div>
+
+                {/* PDF Hero Box */}
+                <div className="relative p-6 sm:p-8 rounded-2xl bg-surface-elevated/70 border border-border/70 flex flex-col items-center justify-center text-center space-y-3">
+                  <div className="w-16 h-16 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 shadow-sm">
+                    <FileType className="w-8 h-8" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-foreground">{selectedFile.name}</h3>
+                    <p className="text-xs text-foreground-muted">
+                      Ready for multi-page extraction and conversion to KaTeX Markdown
+                    </p>
+                  </div>
+
+                  {isScanning && (
+                    <div className="absolute inset-0 bg-black/85 backdrop-blur-xs rounded-2xl flex flex-col items-center justify-center gap-3 p-4">
+                      <RefreshCw className="w-10 h-10 text-secondary animate-spin" />
+                      <p className="text-sm font-semibold text-foreground">
+                        Extracting PDF pages & converting formulas to Markdown...
+                      </p>
+                      <p className="text-xs text-foreground-muted">
+                        Preserving headings, tables, code snippets, and LaTeX equations
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Page Range Selector */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-surface border border-border space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-bold text-foreground">Page Range Selection</h4>
+                      <p className="text-[11px] text-foreground-muted">
+                        Select which pages to extract and include in your study materials
+                      </p>
+                    </div>
+                    <span className="text-[11px] font-mono text-secondary">
+                      {pdfRangePreset === 'all' ? 'All Pages' : `Pages: ${pdfPageRange || 'None'}`}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                    <div className="flex items-center gap-2 p-1 rounded-xl bg-surface-elevated border border-border shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPdfRangePreset('all');
+                          setPdfPageRange('all');
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                          pdfRangePreset === 'all'
+                            ? 'bg-primary text-white shadow-xs'
+                            : 'text-foreground-muted hover:text-foreground'
+                        }`}
+                      >
+                        Entire PDF (All)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPdfRangePreset('custom');
+                          if (pdfPageRange === 'all') setPdfPageRange('1-3');
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                          pdfRangePreset === 'custom'
+                            ? 'bg-primary text-white shadow-xs'
+                            : 'text-foreground-muted hover:text-foreground'
+                        }`}
+                      >
+                        Specific Range
+                      </button>
+                    </div>
+
+                    {pdfRangePreset === 'custom' && (
+                      <div className="flex-1">
+                        <input
+                          type="text"
+                          value={pdfPageRange}
+                          onChange={(e) => setPdfPageRange(e.target.value)}
+                          placeholder="e.g. 1-3, 5 or 2,4"
+                          className="w-full px-3.5 py-1.5 rounded-xl bg-surface-elevated border border-border text-xs text-foreground placeholder:text-foreground-muted/50 focus:outline-none focus:border-secondary transition-colors"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Action Buttons Toolbar */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-border">
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <button
+                      type="button"
+                      disabled={isScanning}
+                      onClick={() => pdfInputRef.current?.click()}
+                      className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-surface hover:bg-surface-hover text-foreground font-semibold text-xs border border-border transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      <UploadCloud className="w-3.5 h-3.5 text-secondary" />
+                      <span>Replace PDF</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={isScanning}
+                      onClick={handleRemoveFile}
+                      className="p-2.5 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                      title="Remove PDF"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Primary Extract Button */}
+                  <button
+                    type="button"
+                    onClick={handleExtractNotes}
+                    disabled={isScanning || !selectedFile}
+                    className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white font-bold text-xs sm:text-sm shadow-lg glow-primary hover:opacity-95 disabled:opacity-50 transition-all flex items-center justify-center gap-2.5"
+                  >
+                    {isScanning ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>Processing PDF...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        <span>Extract Notes & Convert to Markdown</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
             ) : (
@@ -731,7 +1273,7 @@ export const ScannerPage: React.FC = () => {
                     <button
                       type="button"
                       disabled={isScanning}
-                      onClick={handleRemoveImage}
+                      onClick={handleRemoveFile}
                       className="p-2.5 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
                       title="Remove image"
                     >
@@ -766,49 +1308,99 @@ export const ScannerPage: React.FC = () => {
         )}
 
         {/* ------------------------------------------------------------- */}
-        {/* STEP 2: EXTRACT TEXT (OCR CONFIRMATION)                        */}
+        {/* STEP 2: REVIEW EXTRACTED TEXT & MARKDOWN PREVIEW              */}
         {/* ------------------------------------------------------------- */}
         {currentStep === 2 && (
           <div className="glass-card p-6 sm:p-8 space-y-6">
+            {/* Header with Badges */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
               <div>
-                <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
-                  <Edit3 className="w-5 h-5 text-secondary" />
-                  <span>Review & Confirm Extracted Notes</span>
-                </h2>
-                <p className="text-xs text-foreground-muted mt-0.5">
-                  Verify or edit the transcribed text below to fix any handwriting or OCR errors before generating explanations.
-                </p>
-              </div>
-
-              {/* Confidence or Demo Badge */}
-              {scanResult && (
-                <div>
-                  {scanResult.is_demo ? (
-                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                      ⚡ Demo Mode (Sample Notes)
-                    </span>
-                  ) : (
-                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                      Confidence: {scanResult.confidence}
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-bold text-foreground">Review Extracted Content</h2>
+                  {isPdf && (
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase bg-rose-500/15 text-rose-400 border border-rose-500/30">
+                      PDF Converted (.md)
                     </span>
                   )}
                 </div>
-              )}
+                <p className="text-xs text-foreground-muted mt-0.5">
+                  Verify or edit the extracted Markdown, tables, and mathematical formulas before generating simple notes.
+                </p>
+              </div>
+
+              {/* Status / Page badges */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {pdfProcessData ? (
+                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-primary/15 text-primary-light border border-primary/30">
+                    Pages: {pdfProcessData.selected_page_range} of {pdfProcessData.page_count}
+                  </span>
+                ) : scanResult?.is_demo ? (
+                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                    ⚡ Demo Mode
+                  </span>
+                ) : scanResult ? (
+                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                    Confidence: {scanResult.confidence}
+                  </span>
+                ) : null}
+              </div>
             </div>
 
-            {/* Demo Notice Banner if applicable */}
-            {scanResult?.is_demo && (
-              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-300 text-xs flex items-start gap-2.5">
-                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-semibold">Pre-Loaded College Engineering Sample Active</p>
-                  <p className="mt-0.5 leading-relaxed text-amber-300/80">
-                    To perform live multimodal OCR on custom photos with Gemini Vision, add your <code className="bg-black/40 px-1 py-0.5 rounded text-secondary font-mono">GEMINI_API_KEY</code> to <code className="bg-black/40 px-1 py-0.5 rounded font-mono">backend/.env</code>. You can edit this text freely or proceed to generate explanations and quizzes.
-                  </p>
-                </div>
+            {/* View Mode & Download Action Toolbar */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-2xl bg-surface border border-border">
+              {/* Mode Toggle: Rendered vs Raw */}
+              <div className="flex items-center gap-1.5 p-1 rounded-xl bg-surface-elevated border border-border self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setViewModeStep2('rendered')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    viewModeStep2 === 'rendered'
+                      ? 'bg-primary text-white shadow-xs'
+                      : 'text-foreground-muted hover:text-foreground'
+                  }`}
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Rendered Preview</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewModeStep2('raw')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    viewModeStep2 === 'raw'
+                      ? 'bg-primary text-white shadow-xs'
+                      : 'text-foreground-muted hover:text-foreground'
+                  }`}
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Edit Raw Markdown</span>
+                </button>
               </div>
-            )}
+
+              {/* Download Buttons */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleDownloadMarkdown}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-surface-elevated hover:bg-surface-hover text-foreground font-semibold text-xs border border-border transition-colors"
+                  title="Download clean Markdown file"
+                >
+                  <Download className="w-3.5 h-3.5 text-secondary" />
+                  <span>Download .md</span>
+                </button>
+
+                {pdfProcessData && (
+                  <button
+                    type="button"
+                    onClick={handleDownloadOriginalPdf}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 font-semibold text-xs border border-rose-500/30 transition-colors"
+                    title="Download original uploaded PDF"
+                  >
+                    <FileType className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Download PDF</span>
+                  </button>
+                )}
+              </div>
+            </div>
 
             {/* Subject & Topic inputs */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -818,7 +1410,7 @@ export const ScannerPage: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Engineering Mathematics, Data Structures"
+                  placeholder="e.g. Electrical Engineering, Engineering Mathematics"
                   value={editedSubject}
                   onChange={(e) => setEditedSubject(e.target.value)}
                   className="w-full px-4 py-2.5 rounded-xl bg-surface border border-border text-xs text-foreground focus:outline-none focus:border-secondary transition-colors"
@@ -831,7 +1423,7 @@ export const ScannerPage: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Eigenvalues & Characteristic Equation"
+                  placeholder="e.g. AC Circuit Fundamentals & Average Values"
                   value={editedTopic}
                   onChange={(e) => setEditedTopic(e.target.value)}
                   className="w-full px-4 py-2.5 rounded-xl bg-surface border border-border text-xs text-foreground focus:outline-none focus:border-secondary transition-colors"
@@ -853,34 +1445,50 @@ export const ScannerPage: React.FC = () => {
               </div>
             )}
 
-            {/* Editable Monospace Text Area */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-semibold text-foreground">
-                  Extracted Note Content (Editable)
-                </label>
-                <span className="text-[11px] text-foreground-muted font-mono">
-                  {editedText.length} characters
-                </span>
-              </div>
-              <textarea
-                rows={10}
-                value={editedText}
-                onChange={(e) => setEditedText(e.target.value)}
-                placeholder="Study notes text with LaTeX formulas ($...$ or $$...$$) will appear here..."
-                className="w-full p-4 rounded-xl bg-surface border border-border text-xs sm:text-sm font-mono text-foreground focus:outline-none focus:border-secondary leading-relaxed resize-y"
-              />
-            </div>
-
-            {/* Live Formula Preview if LaTeX detected */}
-            {editedText.includes('$') && (
-              <div className="p-4 rounded-xl bg-surface-elevated border border-border space-y-1">
-                <span className="text-[10px] uppercase font-bold text-secondary block tracking-wider">
-                  Rendered LaTeX Formula Preview
-                </span>
-                <div className="text-xs sm:text-sm text-foreground leading-relaxed pt-1">
-                  <MathRenderer content={editedText} />
+            {/* Content Display: Rendered Markdown (KaTeX & Tables) or Editable Textarea */}
+            {viewModeStep2 === 'rendered' ? (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-semibold text-foreground">
+                    Formatted Markdown Preview (with KaTeX Math & Tables)
+                  </label>
+                  <span className="text-[11px] text-foreground-muted font-mono">
+                    {editedText.length} characters
+                  </span>
                 </div>
+                <div className="p-5 sm:p-6 rounded-2xl bg-surface border border-border max-h-[500px] overflow-y-auto scrollbar-thin">
+                  <MarkdownViewer content={editedText} />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-semibold text-foreground">
+                    Raw Markdown Content (Editable)
+                  </label>
+                  <span className="text-[11px] text-foreground-muted font-mono">
+                    {editedText.length} characters
+                  </span>
+                </div>
+                <textarea
+                  rows={12}
+                  value={editedText}
+                  onChange={(e) => setEditedText(e.target.value)}
+                  placeholder="Extracted Markdown with LaTeX formulas ($...$ or $$...$$) will appear here..."
+                  className="w-full p-4 rounded-xl bg-surface border border-border text-xs sm:text-sm font-mono text-foreground focus:outline-none focus:border-secondary leading-relaxed resize-y"
+                />
+
+                {/* Live Formula Preview below textarea if LaTeX is present in raw text */}
+                {(editedText.includes('$') || editedText.includes('\\[')) && (
+                  <div className="p-4 rounded-xl bg-surface-elevated border border-border space-y-1">
+                    <span className="text-[10px] uppercase font-bold text-secondary block tracking-wider">
+                      Rendered LaTeX Formula Preview
+                    </span>
+                    <div className="text-xs sm:text-sm text-foreground leading-relaxed pt-1">
+                      <MathRenderer content={editedText} />
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -891,7 +1499,8 @@ export const ScannerPage: React.FC = () => {
                 onClick={() => goToStep(1)}
                 className="px-4 py-2 rounded-xl bg-surface border border-border hover:bg-surface-hover text-foreground text-xs font-semibold transition-colors flex items-center gap-1.5"
               >
-                <ArrowLeft className="w-3.5 h-3.5" /> Back to Photo
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Back to Document</span>
               </button>
 
               <button
@@ -1201,11 +1810,8 @@ export const ScannerPage: React.FC = () => {
                       <button
                         key={num}
                         type="button"
-                        onClick={() => {
-                          setNumQuestions(num);
-                          triggerQuizGeneration(num, quizDifficulty);
-                        }}
-                        className={`py-2 px-4 sm:py-1.5 sm:px-3.5 rounded-lg font-bold text-center transition-all ${
+                        onClick={() => setNumQuestions(num)}
+                        className={`py-2 px-4 sm:py-1.5 sm:px-3.5 rounded-lg font-bold text-center transition-all cursor-pointer ${
                           numQuestions === num
                             ? 'bg-primary text-white shadow-xs glow-primary'
                             : 'text-foreground-muted hover:text-foreground hover:bg-surface-elevated/50'
@@ -1227,11 +1833,8 @@ export const ScannerPage: React.FC = () => {
                       <button
                         key={d}
                         type="button"
-                        onClick={() => {
-                          setQuizDifficulty(d);
-                          triggerQuizGeneration(numQuestions, d);
-                        }}
-                        className={`py-2 px-3 sm:py-1.5 sm:px-3 rounded-lg capitalize font-bold text-center transition-all ${
+                        onClick={() => setQuizDifficulty(d)}
+                        className={`py-2 px-3 sm:py-1.5 sm:px-3 rounded-lg capitalize font-bold text-center transition-all cursor-pointer ${
                           quizDifficulty === d
                             ? 'bg-secondary text-black shadow-xs font-extrabold'
                             : 'text-foreground-muted hover:text-foreground hover:bg-surface-elevated/50'
@@ -1244,39 +1847,134 @@ export const ScannerPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* 3. Quiz Timer (Below selectors on mobile, aligned right on desktop) */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 w-full sm:w-auto">
+              {/* 3. Quiz Timer / Controls */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
                 <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-foreground-muted shrink-0 sm:hidden">
                   Timer
                 </span>
-                <div className="flex items-center justify-center sm:justify-start gap-2.5 px-4 py-2 sm:py-1.5 rounded-xl bg-surface border border-border text-xs font-mono text-secondary w-full sm:w-auto shrink-0 shadow-xs">
-                  <Clock className="w-4 h-4 text-secondary" />
-                  <span className="font-bold tracking-wider">{formatTime(quizSeconds)}</span>
+                <div className="flex items-center justify-between sm:justify-start gap-2.5 px-4 py-2 sm:py-1.5 rounded-xl bg-surface border border-border text-xs font-mono text-secondary w-full sm:w-auto shrink-0 shadow-xs">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-secondary" />
+                    <span className={`font-bold tracking-wider ${
+                      quizRemainingSeconds <= 60 && isQuizTimerRunning ? 'text-red-400 animate-pulse' : ''
+                    }`}>
+                      {isQuizTimerRunning || isQuizTimerPaused
+                        ? formattedQuizTimer
+                        : isGeneratingQuiz
+                        ? 'Stopped'
+                        : formatQuizTime(getQuizDurationSeconds(numQuestions, quizDifficulty))}
+                    </span>
+                  </div>
+                  {isQuizTimerRunning && (
+                    <button
+                      type="button"
+                      onClick={pauseQuizTimer}
+                      title="Pause quiz countdown"
+                      className="p-1 px-2 rounded-lg bg-surface-elevated border border-border text-[11px] text-foreground-muted hover:text-foreground font-sans flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <Pause className="w-3 h-3" />
+                      <span>Pause</span>
+                    </button>
+                  )}
+                  {isQuizTimerPaused && (
+                    <button
+                      type="button"
+                      onClick={resumeQuizTimer}
+                      title="Resume quiz countdown"
+                      className="p-1 px-2.5 rounded-lg bg-secondary text-black text-[11px] font-bold font-sans flex items-center gap-1 shadow-xs cursor-pointer transition-colors"
+                    >
+                      <Play className="w-3 h-3" />
+                      <span>Resume</span>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
 
-            {/* Error notification */}
-            {quizError && (
-              <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
-                {quizError}
+            {/* Changed Settings Banner when quiz is already active */}
+            {quizData && !isGeneratingQuiz && (quizData.questions.length !== numQuestions || quizData.difficulty !== quizDifficulty) && (
+              <div className="p-3.5 rounded-xl bg-primary/10 border border-primary/30 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
+                <span className="text-foreground">
+                  Settings changed to <strong>{numQuestions} questions ({quizDifficulty})</strong>.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => triggerQuizGeneration(numQuestions, quizDifficulty)}
+                  className="px-4 py-1.5 rounded-lg bg-primary text-white font-bold text-xs shadow-xs hover:bg-primary-hover transition-all flex items-center gap-1.5 self-end sm:self-auto cursor-pointer"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  <span>Start Quiz with New Settings</span>
+                </button>
               </div>
             )}
 
-            {/* Loading Indicator */}
+            {/* Error notification with Retry */}
+            {quizError && (
+              <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>{quizError}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => triggerQuizGeneration(numQuestions, quizDifficulty, isRetakeMode)}
+                  className="px-3 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-white font-semibold text-xs flex items-center gap-1.5 self-end sm:self-auto transition-colors cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Retry Generation</span>
+                </button>
+              </div>
+            )}
+
+            {/* Unstarted Quiz State: Configuration & Start Button */}
+            {!isGeneratingQuiz && !quizData && (
+              <div className="glass-card p-6 sm:p-8 space-y-6 text-center animate-in fade-in">
+                <div className="w-12 h-12 rounded-full bg-secondary/20 text-secondary mx-auto flex items-center justify-center">
+                  <Award className="w-6 h-6" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-base sm:text-lg font-bold text-foreground">
+                    Practice Assessment Ready
+                  </h3>
+                  <p className="text-xs text-foreground-muted max-w-md mx-auto">
+                    Select your questions and difficulty above. When you click Start Quiz, fresh questions will be generated. The quiz timer starts only when Question 1 appears.
+                  </p>
+                </div>
+                <div className="inline-flex items-center gap-3 p-3 rounded-xl bg-surface border border-border text-xs">
+                  <Clock className="w-4 h-4 text-secondary" />
+                  <span className="text-foreground-muted">Allocated Duration:</span>
+                  <strong className="text-secondary font-mono font-bold">
+                    {formatQuizTime(getQuizDurationSeconds(numQuestions, quizDifficulty))} ({Math.round(getQuizDurationSeconds(numQuestions, quizDifficulty) / 60)} mins)
+                  </strong>
+                </div>
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => triggerQuizGeneration(numQuestions, quizDifficulty)}
+                    className="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-gradient-to-r from-primary to-secondary text-white font-bold text-xs shadow-lg glow-primary hover:opacity-95 transition-all inline-flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Play className="w-4 h-4" />
+                    <span>Start Practice Quiz Now</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Loading Indicator during Question Generation */}
             {isGeneratingQuiz && (
-              <div className="glass-card p-12 text-center flex flex-col items-center justify-center gap-3">
+              <div className="glass-card p-10 sm:p-12 text-center flex flex-col items-center justify-center gap-3 animate-in fade-in">
                 <RefreshCw className="w-8 h-8 text-secondary animate-spin" />
-                <p className="text-sm font-semibold text-foreground">
-                  {isRetakeMode
-                    ? "Generating a fresh set of questions..."
-                    : `Generating ${numQuestions} multiple-choice questions grounded in your notes...`}
-                </p>
-                <p className="text-xs text-foreground-muted">
+                <h4 className="text-sm sm:text-base font-bold text-foreground">
+                  Preparing your quiz...
+                </h4>
+                <p className="text-xs text-foreground-muted max-w-md">
                   {isRetakeMode
                     ? "Filtering previously attempted questions to provide fresh practice"
-                    : "Crafting questions, options, and deterministic scoring criteria"}
+                    : `Generating ${numQuestions} multiple-choice questions grounded in your notes at ${quizDifficulty} difficulty...`}
                 </p>
+                <div className="px-3 py-1 rounded-full bg-secondary/10 border border-secondary/20 text-[11px] text-secondary font-mono">
+                  ⏱ Quiz timer is stopped and will begin only when Question 1 appears
+                </div>
               </div>
             )}
 
@@ -1288,8 +1986,31 @@ export const ScannerPage: React.FC = () => {
               </div>
             )}
 
+            {/* Paused Overlay */}
+            {!isGeneratingQuiz && quizData && isQuizTimerPaused && (
+              <div className="glass-card p-10 sm:p-12 text-center space-y-4 border border-secondary/30 animate-in fade-in">
+                <div className="w-12 h-12 rounded-full bg-secondary/20 text-secondary mx-auto flex items-center justify-center">
+                  <Pause className="w-6 h-6" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-base sm:text-lg font-bold text-foreground">Quiz Assessment Paused</h3>
+                  <p className="text-xs text-foreground-muted">
+                    Timer is paused at <strong className="text-secondary font-mono">{formattedQuizTimer}</strong>. The question is hidden while paused.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={resumeQuizTimer}
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white font-bold text-xs shadow-md glow-primary hover:opacity-95 transition-all inline-flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Play className="w-4 h-4" />
+                  <span>Resume Assessment</span>
+                </button>
+              </div>
+            )}
+
             {/* Interactive Question Card */}
-            {!isGeneratingQuiz && quizData && activeQuestion && (
+            {!isGeneratingQuiz && quizData && activeQuestion && !isQuizTimerPaused && (
               <div className="glass-card p-6 sm:p-8 space-y-6">
                 {/* Question Header & Progress Bar */}
                 <div className="space-y-2">
@@ -1378,9 +2099,9 @@ export const ScannerPage: React.FC = () => {
                     ) : (
                       <button
                         type="button"
-                        onClick={handleSubmitQuiz}
+                        onClick={() => handleSubmitQuiz(false)}
                         disabled={isSubmittingQuiz}
-                        className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-black font-bold text-xs shadow-lg hover:opacity-95 disabled:opacity-50 transition-all flex items-center gap-1.5"
+                        className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-black font-bold text-xs shadow-lg hover:opacity-95 disabled:opacity-50 transition-all flex items-center gap-1.5 cursor-pointer"
                       >
                         {isSubmittingQuiz ? (
                           <>
@@ -1427,7 +2148,7 @@ export const ScannerPage: React.FC = () => {
                 {quizResult.passed ? 'Mastery Achieved! 🎉' : 'Keep Practicing! 📚'}
               </h2>
               <p className="text-xs sm:text-sm text-foreground-muted mb-4">
-                You scored {quizResult.correct_count} out of {quizResult.total_questions} questions correct in {formatTime(quizResult.time_taken_seconds)}.
+                You scored {quizResult.correct_count} out of {quizResult.total_questions} questions correct in {formatQuizTime(quizResult.time_taken_seconds)}.
               </p>
 
               <div className="flex flex-wrap items-center justify-center gap-3">
@@ -1453,7 +2174,7 @@ export const ScannerPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    handleRemoveImage();
+                    handleRemoveFile();
                     goToStep(1);
                   }}
                   className="px-5 py-2.5 rounded-xl bg-surface hover:bg-surface-hover text-foreground text-xs font-semibold border border-border transition-colors flex items-center gap-1.5"

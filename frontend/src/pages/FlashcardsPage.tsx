@@ -8,20 +8,34 @@ import {
   HelpCircle,
   Plus,
   RefreshCw,
-  Filter
+  Filter,
+  Bookmark,
+  Check,
+  X
 } from 'lucide-react';
 import { SidebarLayout } from '../components/Sidebar';
 import { MathRenderer } from '../components/MathRenderer';
+import { AutosaveIndicator } from '../components/AutosaveIndicator';
+import { useAutosave } from '../contexts/AutosaveContext';
 import { api } from '../services/api';
-import { FlashcardItem, Difficulty } from '../types';
+import { FlashcardItem, Difficulty, LearningStatus } from '../types';
 
 export const FlashcardsPage: React.FC = () => {
+  const { triggerAutosave } = useAutosave();
   const [flashcards, setFlashcards] = useState<FlashcardItem[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<string>('All');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [loading, setLoading] = useState(true);
   const [reviewSuccess, setReviewSuccess] = useState<string | null>(null);
+
+  // New Flashcard Modal State
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newSubject, setNewSubject] = useState('Engineering Mathematics');
+  const [newTopic, setNewTopic] = useState('Calculus');
+  const [newFront, setNewFront] = useState('');
+  const [newBack, setNewBack] = useState('');
+  const [newFormula, setNewFormula] = useState('');
 
   // Load flashcards from backend
   const loadFlashcards = async (subj?: string) => {
@@ -45,23 +59,106 @@ export const FlashcardsPage: React.FC = () => {
   // Handle Easy / Medium / Hard ratings
   const handleRate = async (rating: Difficulty) => {
     if (!currentCard) return;
-    try {
-      await api.reviewFlashcard(currentCard.id, rating);
-      setReviewSuccess(`Marked as ${rating.toUpperCase()}`);
-      setTimeout(() => setReviewSuccess(null), 1500);
+    const computedStatus: LearningStatus =
+      rating === 'easy' ? 'known' : rating === 'medium' ? 'learning' : 'unknown';
 
-      // Move to next card
-      if (currentIndex < flashcards.length - 1) {
-        setIsFlipped(false);
-        setCurrentIndex((prev) => prev + 1);
-      } else {
-        // Completed deck
-        setIsFlipped(false);
-        setCurrentIndex(0);
-      }
-    } catch (err) {
-      console.error('Failed to review card:', err);
+    const updatedCard = {
+      ...currentCard,
+      difficulty: rating,
+      learning_status: computedStatus,
+      review_count: (currentCard.review_count || 0) + 1,
+    };
+    setFlashcards((prev) => prev.map((c) => (c.id === currentCard.id ? updatedCard : c)));
+
+    triggerAutosave(async () => {
+      return await api.reviewFlashcard(currentCard.id, rating, computedStatus);
+    }, {
+      type: 'flashcard',
+      action: 'review',
+      endpoint: `/api/flashcards/${currentCard.id}/review`,
+      payload: { id: currentCard.id, rating, learning_status: computedStatus }
+    });
+
+    setReviewSuccess(`Marked as ${rating.toUpperCase()} (${computedStatus.toUpperCase()})`);
+    setTimeout(() => setReviewSuccess(null), 1500);
+
+    // Move to next card
+    if (currentIndex < flashcards.length - 1) {
+      setIsFlipped(false);
+      setCurrentIndex((prev) => prev + 1);
+    } else {
+      setIsFlipped(false);
+      setCurrentIndex(0);
     }
+  };
+
+  // Toggle Bookmark
+  const handleToggleBookmark = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!currentCard) return;
+    const newStatus = !currentCard.is_bookmarked;
+    const updatedCard = { ...currentCard, is_bookmarked: newStatus };
+    setFlashcards((prev) => prev.map((c) => (c.id === currentCard.id ? updatedCard : c)));
+
+    triggerAutosave(async () => {
+      return await api.updateFlashcard(currentCard.id, { is_bookmarked: newStatus });
+    }, {
+      type: 'flashcard',
+      action: 'update',
+      endpoint: `/api/flashcards/${currentCard.id}`,
+      payload: { id: currentCard.id, is_bookmarked: newStatus }
+    });
+  };
+
+  // Quick Learning Status change
+  const handleStatusChange = (e: React.MouseEvent, status: LearningStatus) => {
+    e.stopPropagation();
+    if (!currentCard) return;
+    const updatedCard = { ...currentCard, learning_status: status };
+    setFlashcards((prev) => prev.map((c) => (c.id === currentCard.id ? updatedCard : c)));
+
+    triggerAutosave(async () => {
+      return await api.updateFlashcard(currentCard.id, { learning_status: status });
+    }, {
+      type: 'flashcard',
+      action: 'update',
+      endpoint: `/api/flashcards/${currentCard.id}`,
+      payload: { id: currentCard.id, learning_status: status }
+    });
+  };
+
+  // Create Custom Flashcard
+  const handleCreateCard = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newFront.trim() || !newBack.trim()) return;
+
+    const payload = {
+      subject: newSubject,
+      topic: newTopic,
+      front_prompt: newFront,
+      back_answer: newBack,
+      formula_or_code: newFormula.trim() || undefined,
+      difficulty: 'medium' as Difficulty,
+      is_bookmarked: false,
+      learning_status: 'learning' as LearningStatus,
+    };
+
+    const created = await triggerAutosave(async () => {
+      return await api.createFlashcard(payload);
+    }, {
+      type: 'flashcard',
+      action: 'create',
+      endpoint: '/api/flashcards',
+      payload
+    });
+
+    if (created) {
+      setFlashcards((prev) => [created, ...prev]);
+    }
+    setShowAddModal(false);
+    setNewFront('');
+    setNewBack('');
+    setNewFormula('');
   };
 
   const currentCard: FlashcardItem | undefined = flashcards[currentIndex];
@@ -82,23 +179,131 @@ export const FlashcardsPage: React.FC = () => {
             </p>
           </div>
 
-          {/* Subject Filter Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-            {subjects.map((subj) => (
-              <button
-                key={subj}
-                onClick={() => setSelectedSubject(subj)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                  selectedSubject === subj
-                    ? 'bg-primary text-white shadow-sm glow-primary'
-                    : 'bg-surface border border-border text-foreground-muted hover:text-foreground'
-                }`}
-              >
-                {subj}
-              </button>
-            ))}
+          <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+            <AutosaveIndicator compact={false} />
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="px-3.5 py-2 rounded-xl bg-primary text-white text-xs font-semibold shadow-md glow-primary hover:bg-primary-hover transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>New Card</span>
+            </button>
           </div>
         </div>
+
+        {/* Subject Filter Pills */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+          {subjects.map((subj) => (
+            <button
+              key={subj}
+              onClick={() => setSelectedSubject(subj)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                selectedSubject === subj
+                  ? 'bg-primary text-white shadow-sm glow-primary'
+                  : 'bg-surface border border-border text-foreground-muted hover:text-foreground'
+              }`}
+            >
+              {subj}
+            </button>
+          ))}
+        </div>
+
+        {/* Add Card Modal */}
+        {showAddModal && (
+          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="glass-card max-w-lg w-full p-6 space-y-4 animate-in fade-in zoom-in-95">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Plus className="w-4 h-4 text-secondary" />
+                  <span>Create Custom Flashcard</span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="text-foreground-muted hover:text-foreground cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateCard} className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-medium text-foreground-muted mb-1">Subject</label>
+                    <input
+                      type="text"
+                      value={newSubject}
+                      onChange={(e) => setNewSubject(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-foreground text-xs focus:outline-none focus:border-secondary"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-medium text-foreground-muted mb-1">Topic</label>
+                    <input
+                      type="text"
+                      value={newTopic}
+                      onChange={(e) => setNewTopic(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-foreground text-xs focus:outline-none focus:border-secondary"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-medium text-foreground-muted mb-1">Question / Prompt (Front)</label>
+                  <textarea
+                    value={newFront}
+                    onChange={(e) => setNewFront(e.target.value)}
+                    rows={3}
+                    className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-foreground text-xs focus:outline-none focus:border-secondary"
+                    placeholder="e.g. State Baye's Theorem formula..."
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-medium text-foreground-muted mb-1">Answer / Proof (Back)</label>
+                  <textarea
+                    value={newBack}
+                    onChange={(e) => setNewBack(e.target.value)}
+                    rows={3}
+                    className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-foreground text-xs focus:outline-none focus:border-secondary"
+                    placeholder="e.g. P(A|B) = P(B|A)*P(A) / P(B)..."
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-medium text-foreground-muted mb-1">LaTeX Formula / Code (Optional)</label>
+                  <input
+                    type="text"
+                    value={newFormula}
+                    onChange={(e) => setNewFormula(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-foreground text-xs font-mono focus:outline-none focus:border-secondary"
+                    placeholder="e.g. P(A|B) = \frac{P(B|A)P(A)}{P(B)}"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddModal(false)}
+                    className="px-3.5 py-2 rounded-xl bg-surface border border-border text-foreground text-xs cursor-pointer hover:bg-surface-hover"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 rounded-xl bg-primary text-white text-xs font-semibold shadow-md glow-primary cursor-pointer hover:bg-primary-hover"
+                  >
+                    Autosave Flashcard
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <div className="glass-card p-12 text-center flex flex-col items-center justify-center gap-2">
@@ -110,7 +315,7 @@ export const FlashcardsPage: React.FC = () => {
             <Layers className="w-10 h-10 text-foreground-muted mx-auto mb-3 opacity-40" />
             <h3 className="font-bold text-foreground text-sm mb-1">No flashcards found</h3>
             <p className="text-xs text-foreground-muted mb-4">
-              Scan a note or generate an explanation to create interactive flashcards.
+              Scan a note or click "+ New Card" to start building your deck.
             </p>
           </div>
         ) : (
@@ -120,9 +325,11 @@ export const FlashcardsPage: React.FC = () => {
               <span>
                 Card {currentIndex + 1} of {flashcards.length}
               </span>
-              <span className="capitalize text-secondary">
-                Difficulty: {currentCard?.difficulty} • Reviews: {currentCard?.review_count}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="capitalize text-secondary">
+                  Difficulty: {currentCard?.difficulty} • Reviews: {currentCard?.review_count || 0}
+                </span>
+              </div>
             </div>
 
             {/* Interactive 3D Flip Flashcard */}
@@ -135,9 +342,41 @@ export const FlashcardsPage: React.FC = () => {
                 <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-surface-elevated text-secondary border border-border">
                   {currentCard?.subject} • {currentCard?.topic}
                 </span>
-                <span className="text-[11px] text-foreground-muted flex items-center gap-1 group-hover:text-secondary transition-colors">
-                  <RotateCw className="w-3.5 h-3.5" /> Click to Flip Card
-                </span>
+
+                <div className="flex items-center gap-2">
+                  {/* Learning Status Pill */}
+                  <span
+                    onClick={(e) => handleStatusChange(e, currentCard?.learning_status === 'known' ? 'learning' : 'known')}
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${
+                      currentCard?.learning_status === 'known'
+                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
+                        : currentCard?.learning_status === 'unknown'
+                        ? 'bg-red-500/20 text-red-400 border-red-500/40'
+                        : 'bg-blue-500/20 text-blue-400 border-blue-500/40'
+                    }`}
+                    title="Click to toggle known/learning status"
+                  >
+                    {currentCard?.learning_status?.toUpperCase() || 'LEARNING'}
+                  </span>
+
+                  {/* Bookmark Button */}
+                  <button
+                    type="button"
+                    onClick={handleToggleBookmark}
+                    className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                      currentCard?.is_bookmarked
+                        ? 'bg-amber-500/20 text-amber-400 border-amber-500/40'
+                        : 'bg-surface border-border text-foreground-muted hover:text-foreground'
+                    }`}
+                    title={currentCard?.is_bookmarked ? 'Bookmarked' : 'Add bookmark'}
+                  >
+                    <Bookmark className="w-3.5 h-3.5" fill={currentCard?.is_bookmarked ? 'currentColor' : 'none'} />
+                  </button>
+
+                  <span className="text-[11px] text-foreground-muted flex items-center gap-1 group-hover:text-secondary transition-colors">
+                    <RotateCw className="w-3.5 h-3.5" /> Flip
+                  </span>
+                </div>
               </div>
 
               {/* Card Center Content */}
@@ -170,7 +409,7 @@ export const FlashcardsPage: React.FC = () => {
 
               {/* Card Footer */}
               <div className="text-center text-[10px] text-foreground-muted">
-                {isFlipped ? 'How well did you know this concept?' : 'Tap card to reveal answer and rating buttons'}
+                {isFlipped ? 'How well did you know this concept? (Rating is auto-saved)' : 'Tap card to reveal answer and recall rating'}
               </div>
             </div>
 
@@ -181,19 +420,19 @@ export const FlashcardsPage: React.FC = () => {
                 <div className="flex items-center gap-3 w-full sm:w-auto">
                   <button
                     onClick={() => handleRate('hard')}
-                    className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-red-500/15 border border-red-500/30 text-red-400 hover:bg-red-500/25 text-xs font-bold transition-colors"
+                    className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-red-500/15 border border-red-500/30 text-red-400 hover:bg-red-500/25 text-xs font-bold transition-colors cursor-pointer"
                   >
                     Hard (Review Soon)
                   </button>
                   <button
                     onClick={() => handleRate('medium')}
-                    className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/25 text-xs font-bold transition-colors"
+                    className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/25 text-xs font-bold transition-colors cursor-pointer"
                   >
                     Medium (Good)
                   </button>
                   <button
                     onClick={() => handleRate('easy')}
-                    className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 text-xs font-bold transition-colors"
+                    className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 text-xs font-bold transition-colors cursor-pointer"
                   >
                     Easy (Mastered)
                   </button>

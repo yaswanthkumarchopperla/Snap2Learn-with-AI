@@ -13,7 +13,8 @@ from app.api import (
     quiz,
     notes,
     flashcards,
-    progress
+    progress,
+    pdf
 )
 
 # Configure logging
@@ -49,6 +50,7 @@ app.include_router(quiz.router, prefix="/api")
 app.include_router(notes.router, prefix="/api")
 app.include_router(flashcards.router, prefix="/api")
 app.include_router(progress.router, prefix="/api")
+app.include_router(pdf.router, prefix="/api")
 
 @app.get("/")
 def root():

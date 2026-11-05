@@ -1,16 +1,24 @@
 import {
   ScanResponse,
+  ScanHistoryItem,
   ExplainResponse,
   ChatResponse,
   ChatMessage,
+  ChatSessionItem,
   QuizGenerateResponse,
   QuizSubmitResponse,
+  ActiveQuizResponse,
   NoteItem,
   FlashcardItem,
   ProgressAnalytics,
   Language,
   ExplanationMode,
-  Difficulty
+  Difficulty,
+  UserPreferences,
+  LearningStatus,
+  PdfProcessResponse,
+  PdfUpdateRequest,
+  PdfHistoryItem
 } from '../types';
 
 const API_BASE = '/api';
@@ -45,6 +53,31 @@ export const api = {
     return res.json();
   },
 
+  async getPreferences(): Promise<UserPreferences> {
+    const res = await fetch(`${API_BASE}/auth/preferences`, { headers: getAuthHeaders() });
+    if (!res.ok) {
+      return {
+        preferred_language: 'en',
+        default_difficulty: 'medium',
+        default_quiz_questions: 5,
+        study_mode: 'standard',
+        theme: 'dark',
+        auto_save_enabled: true
+      };
+    }
+    return res.json();
+  },
+
+  async updatePreferences(prefs: Partial<UserPreferences>): Promise<UserPreferences> {
+    const res = await fetch(`${API_BASE}/auth/preferences`, {
+      method: 'PUT',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(prefs)
+    });
+    if (!res.ok) throw new Error('Failed to autosave preferences');
+    return res.json();
+  },
+
   async scanImage(file: File, subjectHint?: string): Promise<ScanResponse> {
     const formData = new FormData();
     formData.append('file', file);
@@ -52,12 +85,19 @@ export const api = {
 
     const res = await fetch(`${API_BASE}/scan`, {
       method: 'POST',
+      headers: getAuthHeaders(),
       body: formData,
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: 'Failed to scan image' }));
       throw new Error(err.detail || 'Failed to scan image');
     }
+    return res.json();
+  },
+
+  async getScanHistory(): Promise<ScanHistoryItem[]> {
+    const res = await fetch(`${API_BASE}/scan/history`, { headers: getAuthHeaders() });
+    if (!res.ok) return [];
     return res.json();
   },
 
@@ -70,7 +110,7 @@ export const api = {
   }): Promise<ExplainResponse> {
     const res = await fetch(`${API_BASE}/explain`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(params),
     });
     if (!res.ok) {
@@ -81,21 +121,35 @@ export const api = {
   },
 
   async chatWithTutor(params: {
+    session_id?: string;
     message: string;
     study_context?: string;
     subject?: string;
+    topic?: string;
     history: ChatMessage[];
     language: Language;
   }): Promise<ChatResponse> {
     const res = await fetch(`${API_BASE}/chat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(params),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: 'Failed to reach AI Tutor' }));
       throw new Error(err.detail || 'Failed to reach AI Tutor');
     }
+    return res.json();
+  },
+
+  async getChatSessions(): Promise<ChatSessionItem[]> {
+    const res = await fetch(`${API_BASE}/chat/sessions`, { headers: getAuthHeaders() });
+    if (!res.ok) return [];
+    return res.json();
+  },
+
+  async getChatSession(sessionId: string): Promise<ChatSessionItem> {
+    const res = await fetch(`${API_BASE}/chat/sessions/${sessionId}`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Chat session not found');
     return res.json();
   },
 
@@ -117,6 +171,34 @@ export const api = {
       const err = await res.json().catch(() => ({ detail: 'Failed to generate quiz' }));
       throw new Error(err.detail || 'Failed to generate quiz');
     }
+    return res.json();
+  },
+
+  async saveQuizProgress(params: {
+    quiz_id: string;
+    answers: Record<string, number>;
+    current_question_index: number;
+    time_taken_seconds: number;
+    is_completed?: boolean;
+    title?: string;
+    subject?: string;
+    topic?: string;
+    difficulty?: Difficulty;
+    total_questions?: number;
+    questions?: any[];
+  }): Promise<any> {
+    const res = await fetch(`${API_BASE}/quiz/${params.quiz_id}/progress`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(params),
+    });
+    if (!res.ok) throw new Error('Failed to autosave quiz progress');
+    return res.json();
+  },
+
+  async getActiveQuiz(): Promise<ActiveQuizResponse> {
+    const res = await fetch(`${API_BASE}/quiz/active`, { headers: getAuthHeaders() });
+    if (!res.ok) return { has_active_quiz: false, questions: [], answers: {}, current_question_index: 0, time_taken_seconds: 0, is_completed: true };
     return res.json();
   },
 
@@ -152,18 +234,37 @@ export const api = {
   },
 
   async createNote(data: {
+    id?: string;
     title: string;
     subject: string;
     topic: string;
     raw_text: string;
     summary?: string;
+    telugu_summary?: string;
   }): Promise<NoteItem> {
     const res = await fetch(`${API_BASE}/notes`, {
       method: 'POST',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(data),
     });
-    if (!res.ok) throw new Error('Failed to save note');
+    if (!res.ok) throw new Error('Failed to autosave note');
+    return res.json();
+  },
+
+  async updateNote(id: string, data: {
+    title?: string;
+    subject?: string;
+    topic?: string;
+    raw_text?: string;
+    summary?: string;
+    telugu_summary?: string;
+  }): Promise<NoteItem> {
+    const res = await fetch(`${API_BASE}/notes/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to autosave note modifications');
     return res.json();
   },
 
@@ -182,11 +283,70 @@ export const api = {
     return res.json();
   },
 
-  async reviewFlashcard(cardId: string, rating: Difficulty): Promise<FlashcardItem> {
+  async createFlashcard(data: {
+    id?: string;
+    note_id?: string;
+    subject: string;
+    topic: string;
+    front_prompt: string;
+    back_answer: string;
+    formula_or_code?: string;
+    difficulty?: Difficulty;
+    is_bookmarked?: boolean;
+    learning_status?: LearningStatus;
+  }): Promise<FlashcardItem> {
+    const res = await fetch(`${API_BASE}/flashcards`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to autosave flashcard');
+    return res.json();
+  },
+
+  async createFlashcardsBatch(cards: {
+    id?: string;
+    note_id?: string;
+    subject: string;
+    topic: string;
+    front_prompt: string;
+    back_answer: string;
+    formula_or_code?: string;
+    difficulty?: Difficulty;
+    is_bookmarked?: boolean;
+    learning_status?: LearningStatus;
+  }[]): Promise<FlashcardItem[]> {
+    const res = await fetch(`${API_BASE}/flashcards/batch`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ cards }),
+    });
+    if (!res.ok) throw new Error('Failed to autosave flashcard set');
+    return res.json();
+  },
+
+  async updateFlashcard(cardId: string, updates: {
+    front_prompt?: string;
+    back_answer?: string;
+    formula_or_code?: string;
+    difficulty?: Difficulty;
+    is_bookmarked?: boolean;
+    learning_status?: LearningStatus;
+  }): Promise<FlashcardItem> {
+    const res = await fetch(`${API_BASE}/flashcards/${cardId}`, {
+      method: 'PUT',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(updates),
+    });
+    if (!res.ok) throw new Error('Failed to update flashcard');
+    return res.json();
+  },
+
+  async reviewFlashcard(cardId: string, rating: Difficulty, learningStatus?: LearningStatus): Promise<FlashcardItem> {
     const res = await fetch(`${API_BASE}/flashcards/${cardId}/review`, {
       method: 'POST',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ rating }),
+      body: JSON.stringify({ rating, learning_status: learningStatus }),
     });
     if (!res.ok) throw new Error('Failed to record flashcard review');
     return res.json();
@@ -266,6 +426,79 @@ export const api = {
       const err = await res.json().catch(() => ({ detail: 'Login failed' }));
       throw new Error(err.detail || 'Incorrect email or password');
     }
+    return res.json();
+  },
+
+  // -------------------------------------------------------------
+  // PDF Document Operations
+  // -------------------------------------------------------------
+  async uploadPdf(file: File, pageRange?: string, subjectHint?: string): Promise<PdfProcessResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (pageRange) formData.append('page_range', pageRange);
+    if (subjectHint) formData.append('subject_hint', subjectHint);
+
+    const res = await fetch(`${API_BASE}/pdf/upload`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to process PDF document' }));
+      throw new Error(err.detail || 'Failed to process PDF document');
+    }
+    return res.json();
+  },
+
+  async getPdfDocument(docId: string): Promise<PdfProcessResponse> {
+    const res = await fetch(`${API_BASE}/pdf/${docId}`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to load PDF document' }));
+      throw new Error(err.detail || 'Failed to load PDF document');
+    }
+    return res.json();
+  },
+
+  async updatePdfDocument(docId: string, updates: PdfUpdateRequest): Promise<PdfProcessResponse> {
+    const res = await fetch(`${API_BASE}/pdf/${docId}`, {
+      method: 'PUT',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(updates),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to update PDF document' }));
+      throw new Error(err.detail || 'Failed to update PDF document');
+    }
+    return res.json();
+  },
+
+  async downloadOriginalPdf(docId: string): Promise<Blob> {
+    const res = await fetch(`${API_BASE}/pdf/${docId}/download`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) {
+      throw new Error('Failed to download PDF document');
+    }
+    return res.blob();
+  },
+
+  async downloadConvertedMarkdown(docId: string): Promise<string> {
+    const res = await fetch(`${API_BASE}/pdf/${docId}/markdown`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) {
+      throw new Error('Failed to download Markdown file');
+    }
+    return res.text();
+  },
+
+  async getPdfHistory(): Promise<PdfHistoryItem[]> {
+    const res = await fetch(`${API_BASE}/pdf/history`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) return [];
     return res.json();
   },
 };

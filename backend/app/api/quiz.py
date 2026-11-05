@@ -7,6 +7,8 @@ from app.schemas.quiz import (
     QuizGenerateResponse,
     QuizSubmitRequest,
     QuizSubmitResponse,
+    QuizProgressRequest,
+    ActiveQuizResponse,
     QuestionClientView,
     QuestionReview
 )
@@ -81,6 +83,24 @@ def generate_quiz(
         for q in questions
     ]
 
+    # 6. Initialize active quiz progress record for auto-saving and recovery
+    store.save_quiz_progress(
+        quiz_id=quiz_id,
+        answers={},
+        current_question_index=0,
+        time_taken_seconds=0,
+        is_completed=False,
+        user_id=student_id,
+        quiz_meta={
+            "title": title,
+            "subject": request.subject,
+            "topic": request.topic,
+            "difficulty": request.difficulty,
+            "total_questions": len(client_questions),
+            "questions": [q.model_dump() for q in client_questions]
+        }
+    )
+
     return QuizGenerateResponse(
         quiz_id=quiz_id,
         title=title,
@@ -94,6 +114,80 @@ def generate_quiz(
         notice=notice
     )
 
+@router.post("/{quiz_id}/progress")
+def save_quiz_progress(
+    quiz_id: str,
+    request: QuizProgressRequest,
+    user: Optional[AuthUserResponse] = Depends(get_optional_current_user)
+):
+    """
+    Autosave quiz state immediately upon option selection or navigation.
+    Preserves selected answers, timer position, and current question.
+    """
+    student_id = user.id if user else (request.user_id or "guest_student")
+    meta = {}
+    if request.questions:
+        meta["questions"] = [q.model_dump() for q in request.questions]
+    if request.title:
+        meta["title"] = request.title
+    if request.subject:
+        meta["subject"] = request.subject
+    if request.topic:
+        meta["topic"] = request.topic
+    if request.difficulty:
+        meta["difficulty"] = request.difficulty
+    if request.total_questions:
+        meta["total_questions"] = request.total_questions
+
+    saved = store.save_quiz_progress(
+        quiz_id=quiz_id,
+        answers=request.answers,
+        current_question_index=request.current_question_index,
+        time_taken_seconds=request.time_taken_seconds,
+        is_completed=request.is_completed,
+        user_id=student_id,
+        quiz_meta=meta if meta else None
+    )
+    return {"status": "saved", "quiz_id": quiz_id, "updated_at": saved.get("updated_at")}
+
+@router.get("/active", response_model=ActiveQuizResponse)
+def get_active_quiz(user: Optional[AuthUserResponse] = Depends(get_optional_current_user)):
+    """
+    Checks if there is an in-progress, unfinished quiz for the student.
+    Enables automatic restoration across browser refreshes or device changes.
+    """
+    student_id = user.id if user else "guest_student"
+    active = store.get_active_quiz(user_id=student_id)
+    if not active:
+        return ActiveQuizResponse(has_active_quiz=False)
+
+    raw_questions = active.get("questions", [])
+    client_questions = []
+    for q in raw_questions:
+        try:
+            if isinstance(q, dict):
+                client_questions.append(QuestionClientView(**q))
+            elif hasattr(q, "model_dump"):
+                client_questions.append(QuestionClientView(**q.model_dump()))
+        except Exception:
+            pass
+
+    return ActiveQuizResponse(
+        has_active_quiz=True,
+        quiz_id=active.get("quiz_id"),
+        title=active.get("title"),
+        subject=active.get("subject"),
+        topic=active.get("topic"),
+        difficulty=active.get("difficulty"),
+        total_questions=active.get("total_questions", len(client_questions)),
+        questions=client_questions,
+        answers=active.get("answers", {}),
+        current_question_index=active.get("current_question_index", 0),
+        time_taken_seconds=active.get("time_taken_seconds", 0),
+        is_completed=active.get("is_completed", False),
+        updated_at=active.get("updated_at")
+    )
+
 @router.post("/submit", response_model=QuizSubmitResponse)
 def submit_quiz(
     request: QuizSubmitRequest,
@@ -102,6 +196,7 @@ def submit_quiz(
     """
     Deterministically computes score on backend, records individual attempt into analytics,
     and updates student question history to guarantee fresh questions on retakes.
+    Marks the active quiz session as completed.
     """
     quiz_data = store.get_quiz(request.quiz_id)
     if not quiz_data:
@@ -180,6 +275,9 @@ def submit_quiz(
         questions=question_reviews,
         score_percentage=score_pct
     )
+
+    # Mark active quiz progress as completed
+    store.complete_quiz_progress(quiz_id=request.quiz_id, user_id=student_id)
 
     return QuizSubmitResponse(
         quiz_id=request.quiz_id,

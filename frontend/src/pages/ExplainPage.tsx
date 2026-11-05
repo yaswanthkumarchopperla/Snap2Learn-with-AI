@@ -19,12 +19,15 @@ import {
 } from 'lucide-react';
 import { SidebarLayout } from '../components/Sidebar';
 import { MathRenderer } from '../components/MathRenderer';
+import { AutosaveIndicator } from '../components/AutosaveIndicator';
+import { useAutosave } from '../contexts/AutosaveContext';
 import { api } from '../services/api';
 import { ExplainResponse, ExplanationMode, Language } from '../types';
 
 export const ExplainPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { triggerAutosave } = useAutosave();
 
   // Initial params passed from Scanner or previous page
   const initialText = location.state?.text ||
@@ -71,6 +74,30 @@ export const ExplainPage: React.FC = () => {
         language: selectedLang,
       });
       setExplanation(data);
+
+      // Autosave explanation note automatically
+      triggerAutosave(async () => {
+        return await api.createNote({
+          title: initialTopic,
+          subject: initialSubject,
+          topic: initialTopic,
+          raw_text: initialText,
+          summary: data.short_summary,
+          telugu_summary: data.telugu_summary,
+        });
+      }, {
+        type: 'note',
+        action: 'create',
+        endpoint: '/api/notes',
+        payload: {
+          title: initialTopic,
+          subject: initialSubject,
+          topic: initialTopic,
+          raw_text: initialText,
+          summary: data.short_summary,
+          telugu_summary: data.telugu_summary,
+        }
+      });
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to generate explanation. Please try again.');
     } finally {
@@ -134,7 +161,8 @@ export const ExplainPage: React.FC = () => {
             </h1>
           </div>
 
-          <div className="flex items-center gap-2 self-start sm:self-auto">
+          <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+            <AutosaveIndicator compact={false} />
             <button
               onClick={handleCopyFullNotes}
               className="px-3 py-2 rounded-xl border border-border bg-surface hover:bg-surface-hover text-foreground text-xs font-semibold transition-all flex items-center gap-1.5"

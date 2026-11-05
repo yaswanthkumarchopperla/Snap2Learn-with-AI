@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BookOpen,
@@ -11,20 +11,76 @@ import {
   Plus,
   RefreshCw,
   Clock,
-  CheckCircle2
+  CheckCircle2,
+  Edit3,
+  Eye
 } from 'lucide-react';
 import { SidebarLayout } from '../components/Sidebar';
 import { MathRenderer } from '../components/MathRenderer';
+import { AutosaveIndicator } from '../components/AutosaveIndicator';
+import { useAutosave } from '../contexts/AutosaveContext';
 import { api } from '../services/api';
 import { NoteItem } from '../types';
 
 export const NotesPage: React.FC = () => {
   const navigate = useNavigate();
+  const { triggerAutosave } = useAutosave();
   const [notes, setNotes] = useState<NoteItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSubject, setSelectedSubject] = useState<string>('All');
   const [loading, setLoading] = useState(true);
   const [selectedNote, setSelectedNote] = useState<NoteItem | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editText, setEditText] = useState('');
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (selectedNote) {
+      setEditTitle(selectedNote.title);
+      setEditText(selectedNote.raw_text);
+    }
+  }, [selectedNote?.id]);
+
+  const handleTitleChange = (newTitle: string) => {
+    setEditTitle(newTitle);
+    if (!selectedNote) return;
+    const updatedNote = { ...selectedNote, title: newTitle };
+    setSelectedNote(updatedNote);
+    setNotes((prev) => prev.map((n) => (n.id === selectedNote.id ? updatedNote : n)));
+
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      triggerAutosave(async () => {
+        return await api.updateNote(selectedNote.id, { title: newTitle });
+      }, {
+        type: 'note',
+        action: 'update',
+        endpoint: `/api/notes/${selectedNote.id}`,
+        payload: { id: selectedNote.id, title: newTitle }
+      });
+    }, 700);
+  };
+
+  const handleTextChange = (newText: string) => {
+    setEditText(newText);
+    if (!selectedNote) return;
+    const updatedNote = { ...selectedNote, raw_text: newText };
+    setSelectedNote(updatedNote);
+    setNotes((prev) => prev.map((n) => (n.id === selectedNote.id ? updatedNote : n)));
+
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      triggerAutosave(async () => {
+        return await api.updateNote(selectedNote.id, { raw_text: newText });
+      }, {
+        type: 'note',
+        action: 'update',
+        endpoint: `/api/notes/${selectedNote.id}`,
+        payload: { id: selectedNote.id, raw_text: newText }
+      });
+    }, 700);
+  };
 
   const fetchNotes = async (subj?: string) => {
     setLoading(true);
@@ -84,13 +140,16 @@ export const NotesPage: React.FC = () => {
             </p>
           </div>
 
-          <button
-            onClick={() => navigate('/scanner')}
-            className="self-start sm:self-auto px-4 py-2 rounded-xl bg-primary text-white text-xs font-semibold shadow-md glow-primary hover:bg-primary-hover transition-all flex items-center gap-1.5"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Scan New Note</span>
-          </button>
+          <div className="flex items-center gap-2.5 self-start sm:self-auto flex-wrap">
+            <AutosaveIndicator compact={false} />
+            <button
+              onClick={() => navigate('/scanner')}
+              className="px-4 py-2 rounded-xl bg-primary text-white text-xs font-semibold shadow-md glow-primary hover:bg-primary-hover transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Scan New Note</span>
+            </button>
+          </div>
         </div>
 
         {/* Filter & Search Bar */}
@@ -185,17 +244,51 @@ export const NotesPage: React.FC = () => {
             {selectedNote && (
               <div className="lg:col-span-7 space-y-4">
                 <div className="glass-card p-6 space-y-5">
-                  <div className="flex items-center justify-between border-b border-border pb-3">
-                    <div>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/20 text-primary border border-primary/30">
-                        {selectedNote.subject}
-                      </span>
-                      <h2 className="text-lg font-bold text-foreground mt-1">
-                        {selectedNote.title}
-                      </h2>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/20 text-primary border border-primary/30">
+                          {selectedNote.subject}
+                        </span>
+                        <AutosaveIndicator compact={true} />
+                      </div>
+                      <input
+                        type="text"
+                        value={editTitle}
+                        onChange={(e) => handleTitleChange(e.target.value)}
+                        className="text-lg font-bold text-foreground bg-transparent border-b border-transparent hover:border-border focus:border-secondary focus:outline-none w-full transition-colors px-1 py-0.5"
+                        placeholder="Note title..."
+                      />
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 self-start sm:self-auto">
+                      <div className="flex items-center bg-surface rounded-xl p-1 border border-border">
+                        <button
+                          type="button"
+                          onClick={() => setIsEditing(false)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 ${
+                            !isEditing
+                              ? 'bg-primary text-white shadow-xs'
+                              : 'text-foreground-muted hover:text-foreground'
+                          }`}
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Preview</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditing(true)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 ${
+                            isEditing
+                              ? 'bg-primary text-white shadow-xs'
+                              : 'text-foreground-muted hover:text-foreground'
+                          }`}
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>Edit</span>
+                        </button>
+                      </div>
+
                       <button
                         onClick={() =>
                           navigate('/chat', {
@@ -206,7 +299,7 @@ export const NotesPage: React.FC = () => {
                             },
                           })
                         }
-                        className="p-2 rounded-xl bg-surface border border-border hover:bg-surface-hover text-foreground-muted hover:text-foreground transition-colors"
+                        className="p-2 rounded-xl bg-surface border border-border hover:bg-surface-hover text-foreground-muted hover:text-foreground transition-colors cursor-pointer"
                         title="Ask Tutor about this note"
                       >
                         <MessageSquare className="w-4 h-4 text-secondary" />
@@ -221,7 +314,7 @@ export const NotesPage: React.FC = () => {
                             },
                           })
                         }
-                        className="p-2 rounded-xl bg-surface border border-border hover:bg-surface-hover text-foreground-muted hover:text-foreground transition-colors"
+                        className="p-2 rounded-xl bg-surface border border-border hover:bg-surface-hover text-foreground-muted hover:text-foreground transition-colors cursor-pointer"
                         title="Generate Quiz on this note"
                       >
                         <Award className="w-4 h-4 text-accent" />
@@ -241,14 +334,42 @@ export const NotesPage: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Raw Confirmed Text with Math Rendering */}
-                  <div>
-                    <span className="text-xs font-semibold text-foreground-muted block mb-2">
-                      Full Extracted Content
-                    </span>
-                    <div className="p-4 rounded-xl bg-surface border border-border text-xs text-foreground leading-relaxed font-mono whitespace-pre-wrap">
-                      <MathRenderer content={selectedNote.raw_text} />
+                  {/* Telugu Summary if available */}
+                  {selectedNote.telugu_summary && (
+                    <div className="p-3.5 rounded-xl bg-accent/10 border border-accent/20">
+                      <span className="text-[10px] uppercase font-bold text-accent block mb-1">
+                        తెలుగు సారాంశం (Telugu Explanation)
+                      </span>
+                      <p className="text-xs text-foreground leading-relaxed font-telugu">
+                        {selectedNote.telugu_summary}
+                      </p>
                     </div>
+                  )}
+
+                  {/* Full Note Content: Either Rendered or Editable */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold text-foreground-muted block">
+                        {isEditing ? 'Editing Content (Autosaved continuously)' : 'Full Extracted Content (KaTeX / Formulas rendered)'}
+                      </span>
+                      {isEditing && (
+                        <span className="text-[10px] text-emerald-400 font-medium">Autosaving on keystroke</span>
+                      )}
+                    </div>
+
+                    {isEditing ? (
+                      <textarea
+                        value={editText}
+                        onChange={(e) => handleTextChange(e.target.value)}
+                        rows={12}
+                        className="w-full p-4 rounded-xl bg-surface border border-border text-xs text-foreground font-mono focus:outline-none focus:border-secondary transition-colors resize-y"
+                        placeholder="Type or paste study note content..."
+                      />
+                    ) : (
+                      <div className="p-4 rounded-xl bg-surface border border-border text-xs text-foreground leading-relaxed font-mono whitespace-pre-wrap">
+                        <MathRenderer content={selectedNote.raw_text} />
+                      </div>
+                    )}
                   </div>
 
                   {/* Bottom Action Bar */}

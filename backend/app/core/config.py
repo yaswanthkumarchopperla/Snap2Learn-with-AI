@@ -69,6 +69,9 @@ class Settings:
     # Upload constraints
     MAX_UPLOAD_SIZE_MB: int = int(os.getenv("MAX_UPLOAD_SIZE_MB", "10"))
     ALLOWED_IMAGE_TYPES: list[str] = ["image/jpeg", "image/png", "image/webp"]
+    MAX_PDF_SIZE_MB: int = int(os.getenv("MAX_PDF_SIZE_MB", "25"))
+    ALLOWED_PDF_TYPES: list[str] = ["application/pdf"]
+    PDF_UPLOAD_DIR: Path = Path(__file__).resolve().parent.parent.parent / "data" / "uploads" / "pdfs"
 
     # CORS configuration
     CORS_ORIGINS: list[str] = [

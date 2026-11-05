@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Settings,
   User,
@@ -9,27 +9,84 @@ import {
   Trash2,
   ShieldCheck,
   Check,
-  LogOut
+  LogOut,
+  Sparkles
 } from 'lucide-react';
 import { SidebarLayout } from '../components/Sidebar';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
-import { Language, ExplanationMode } from '../types';
+import { useAutosave } from '../contexts/AutosaveContext';
+import { AutosaveIndicator } from '../components/AutosaveIndicator';
+import { api } from '../services/api';
+import { Language, ExplanationMode, Difficulty } from '../types';
 
 export const SettingsPage: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
+  const { triggerAutosave } = useAutosave();
 
   const [displayName, setDisplayName] = useState(user?.displayName || 'First-Year Student');
   const [preferredLang, setPreferredLang] = useState<Language>('bilingual');
   const [defaultMode, setDefaultMode] = useState<ExplanationMode>('standard');
-  const [savedSuccess, setSavedSuccess] = useState(false);
+  const [defaultDifficulty, setDefaultDifficulty] = useState<Difficulty>('medium');
+  const [defaultQuestions, setDefaultQuestions] = useState<number>(5);
   const [resetSuccess, setResetSuccess] = useState(false);
+  const isInitialMount = useRef(true);
 
-  const handleSaveSettings = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 2500);
+  // Load user preferences on mount
+  useEffect(() => {
+    api.getPreferences().then((prefs) => {
+      if (prefs.preferred_language === 'te') {
+        setPreferredLang('telugu');
+      } else if (prefs.preferred_language === 'en') {
+        setPreferredLang('english');
+      } else {
+        setPreferredLang('bilingual');
+      }
+      if (prefs.default_difficulty) setDefaultDifficulty(prefs.default_difficulty);
+      if (prefs.default_quiz_questions) setDefaultQuestions(prefs.default_quiz_questions);
+      if (prefs.study_mode === 'exam_cram') setDefaultMode('exam');
+      else if (prefs.study_mode === 'deep_dive') setDefaultMode('standard');
+    }).catch(() => {});
+  }, []);
+
+  // Autosave preferences on change
+  const syncPreferences = (updates: {
+    preferred_language?: 'en' | 'te';
+    default_difficulty?: Difficulty;
+    default_quiz_questions?: number;
+    study_mode?: 'standard' | 'exam_cram' | 'deep_dive';
+  }) => {
+    triggerAutosave(async () => {
+      return await api.updatePreferences(updates);
+    }, {
+      type: 'preferences',
+      action: 'update',
+      endpoint: '/api/auth/preferences',
+      payload: updates
+    });
+  };
+
+  const handleLanguageChange = (val: Language) => {
+    setPreferredLang(val);
+    const backendLang = val === 'telugu' ? 'te' : 'en';
+    syncPreferences({ preferred_language: backendLang });
+  };
+
+  const handleModeChange = (val: ExplanationMode) => {
+    setDefaultMode(val);
+    const backendMode = val === 'exam' ? 'exam_cram' : 'standard';
+    syncPreferences({ study_mode: backendMode });
+  };
+
+  const handleDifficultyChange = (val: Difficulty) => {
+    setDefaultDifficulty(val);
+    syncPreferences({ default_difficulty: val });
+  };
+
+  const handleQuestionsChange = (val: number) => {
+    setDefaultQuestions(val);
+    syncPreferences({ default_quiz_questions: val });
   };
 
   const handleClearLocalData = () => {
@@ -46,22 +103,19 @@ export const SettingsPage: React.FC = () => {
     <SidebarLayout>
       <div className="p-4 sm:p-6 lg:p-8 max-w-4xl w-full mx-auto space-y-6">
         {/* Header */}
-        <div className="pb-3 border-b border-border">
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
-            <Settings className="w-6 h-6 text-secondary" />
-            <span>Workspace Settings</span>
-          </h1>
-          <p className="text-xs sm:text-sm text-foreground-muted mt-1">
-            Customize your learning experience, regional languages, and account preferences.
-          </p>
-        </div>
-
-        {savedSuccess && (
-          <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs flex items-center gap-2">
-            <Check className="w-4 h-4" />
-            <span>Settings updated successfully!</span>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
+              <Settings className="w-6 h-6 text-secondary" />
+              <span>Workspace Settings</span>
+            </h1>
+            <p className="text-xs sm:text-sm text-foreground-muted mt-1">
+              Customize your learning experience, regional languages, and account preferences.
+            </p>
           </div>
-        )}
+
+          <AutosaveIndicator compact={false} />
+        </div>
 
         {resetSuccess && (
           <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs">
@@ -69,7 +123,7 @@ export const SettingsPage: React.FC = () => {
           </div>
         )}
 
-        <form onSubmit={handleSaveSettings} className="space-y-6">
+        <div className="space-y-6">
           {/* Profile Card */}
           <div className="glass-card p-6 space-y-4">
             <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
@@ -106,10 +160,13 @@ export const SettingsPage: React.FC = () => {
 
           {/* Learning Preferences */}
           <div className="glass-card p-6 space-y-4">
-            <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-              <Globe2 className="w-4 h-4 text-secondary" />
-              <span>Learning Preferences</span>
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                <Globe2 className="w-4 h-4 text-secondary" />
+                <span>Learning & Quiz Preferences (Autosaved)</span>
+              </h3>
+              <span className="text-[10px] text-emerald-400 font-semibold">Changes synced automatically</span>
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -118,7 +175,7 @@ export const SettingsPage: React.FC = () => {
                 </label>
                 <select
                   value={preferredLang}
-                  onChange={(e) => setPreferredLang(e.target.value as Language)}
+                  onChange={(e) => handleLanguageChange(e.target.value as Language)}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-border text-foreground text-xs focus:outline-none focus:border-secondary"
                 >
                   <option value="bilingual">Bilingual (English + Telugu Side-by-Side)</option>
@@ -133,12 +190,42 @@ export const SettingsPage: React.FC = () => {
                 </label>
                 <select
                   value={defaultMode}
-                  onChange={(e) => setDefaultMode(e.target.value as ExplanationMode)}
+                  onChange={(e) => handleModeChange(e.target.value as ExplanationMode)}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-border text-foreground text-xs focus:outline-none focus:border-secondary"
                 >
                   <option value="standard">Standard (Academic Rigor & Proofs)</option>
                   <option value="beginner">Beginner (Everyday Analogies)</option>
                   <option value="exam">Exam Preparation (High-scoring structured answers)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-foreground-muted mb-1.5">
+                  Default Quiz Difficulty
+                </label>
+                <select
+                  value={defaultDifficulty}
+                  onChange={(e) => handleDifficultyChange(e.target.value as Difficulty)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-border text-foreground text-xs focus:outline-none focus:border-secondary"
+                >
+                  <option value="easy">Easy (Definitions & Concept Recall)</option>
+                  <option value="medium">Medium (Application & 2-Step Solving)</option>
+                  <option value="hard">Hard (Multi-Step Numerical Problems)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-foreground-muted mb-1.5">
+                  Default Questions per Quiz
+                </label>
+                <select
+                  value={defaultQuestions}
+                  onChange={(e) => handleQuestionsChange(Number(e.target.value))}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-border text-foreground text-xs focus:outline-none focus:border-secondary"
+                >
+                  <option value={5}>5 Questions (Fast Sprint)</option>
+                  <option value={10}>10 Questions (Standard Test)</option>
+                  <option value={15}>15 Questions (Full Exam Simulation)</option>
                 </select>
               </div>
             </div>
@@ -169,16 +256,7 @@ export const SettingsPage: React.FC = () => {
               )}
             </button>
           </div>
-
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-primary text-white text-xs font-semibold shadow-md glow-primary hover:bg-primary-hover transition-all cursor-pointer"
-            >
-              Save Preferences
-            </button>
-          </div>
-        </form>
+        </div>
 
         {/* Security & Data Privacy Card */}
         <div className="glass-card p-4 sm:p-6 border-l-4 border-l-secondary space-y-4">

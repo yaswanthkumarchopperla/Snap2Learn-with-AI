@@ -1,22 +1,28 @@
 import io
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, status
-from typing import Optional
+import uuid
+from datetime import datetime, timezone
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends, status
+from typing import Optional, List
 from PIL import Image
 
 from app.core.config import settings
-from app.schemas.scan import ScanResponse
+from app.schemas.scan import ScanResponse, ScanHistoryItem
 from app.services.gemini_service import gemini_service
+from app.services.storage_service import store
+from app.api.auth import get_optional_current_user, AuthUserResponse
 
 router = APIRouter(prefix="/scan", tags=["Scanner"])
 
 @router.post("", response_model=ScanResponse)
 async def scan_notes(
     file: UploadFile = File(...),
-    subject_hint: Optional[str] = Form(None)
+    subject_hint: Optional[str] = Form(None),
+    current_user: Optional[AuthUserResponse] = Depends(get_optional_current_user)
 ):
     """
     Validate uploaded file and process via Gemini Multimodal OCR.
-    Extracts text, mathematical formulas, subject, and topic.
+    Extracts text, mathematical formulas, subject, and topic, and automatically
+    persists the scan result to the student's scan history.
     """
     # 1. Validate MIME type
     if file.content_type not in settings.ALLOWED_IMAGE_TYPES:
@@ -51,4 +57,34 @@ async def scan_notes(
         subject_hint=subject_hint
     )
 
+    # 5. Autosave scan to history
+    user_id = current_user.id if current_user else "guest_student"
+    scan_id = f"scan-{uuid.uuid4().hex[:8]}"
+    created_at = datetime.now(timezone.utc).isoformat()
+    scan_result.scan_id = scan_id
+    scan_result.created_at = created_at
+
+    store.save_scan(
+        scan_data={
+            "id": scan_id,
+            "text": scan_result.text,
+            "subject": scan_result.subject,
+            "topic": scan_result.topic,
+            "confidence": scan_result.confidence,
+            "uncertain_segments": scan_result.uncertain_segments,
+            "created_at": created_at
+        },
+        user_id=user_id
+    )
+
     return scan_result
+
+@router.get("/history", response_model=List[ScanHistoryItem])
+def get_scan_history(
+    current_user: Optional[AuthUserResponse] = Depends(get_optional_current_user),
+    limit: int = 20
+):
+    """Retrieve the student's past scans to revisit extracted OCR texts."""
+    user_id = current_user.id if current_user else "guest_student"
+    scans = store.get_scan_history(user_id=user_id, limit=limit)
+    return [ScanHistoryItem(**s) for s in scans]

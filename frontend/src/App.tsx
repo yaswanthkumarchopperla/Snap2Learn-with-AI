@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AutosaveProvider } from './contexts/AutosaveContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 import { LandingPage } from './pages/LandingPage';
@@ -41,8 +42,9 @@ export function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <BrowserRouter>
-          <Routes>
+        <AutosaveProvider>
+          <BrowserRouter>
+            <Routes>
             {/* Default entry point: Authentication for unauthenticated, Dashboard for authenticated */}
             <Route path="/" element={<RootEntryRedirect />} />
 
@@ -133,8 +135,9 @@ export function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
-      </AuthProvider>
-    </ThemeProvider>
+      </AutosaveProvider>
+    </AuthProvider>
+  </ThemeProvider>
   );
 }
 

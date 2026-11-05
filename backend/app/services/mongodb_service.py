@@ -57,11 +57,19 @@ class MongoDBService:
             self._db.users.create_index([("email", ASCENDING)], unique=True)
             self._db.otps.create_index([("email", ASCENDING)])
             self._db.notes.create_index([("user_id", ASCENDING), ("created_at", ASCENDING)])
+            self._db.notes.create_index([("id", ASCENDING)], unique=True)
             self._db.flashcards.create_index([("user_id", ASCENDING), ("subject", ASCENDING)])
+            self._db.flashcards.create_index([("id", ASCENDING)], unique=True)
             self._db.quizzes.create_index([("quiz_id", ASCENDING)], unique=True)
             self._db.attempts.create_index([("user_id", ASCENDING), ("timestamp", ASCENDING)])
             self._db.question_history.create_index([("user_id", ASCENDING), ("topic", ASCENDING), ("created_at", ASCENDING)])
             self._db.question_history.create_index([("user_id", ASCENDING), ("fingerprint", ASCENDING)])
+            self._db.scans.create_index([("user_id", ASCENDING), ("created_at", ASCENDING)])
+            self._db.chat_sessions.create_index([("user_id", ASCENDING), ("updated_at", ASCENDING)])
+            self._db.quiz_progress.create_index([("user_id", ASCENDING), ("quiz_id", ASCENDING)], unique=True)
+            self._db.user_preferences.create_index([("user_id", ASCENDING)], unique=True)
+            self._db.pdf_documents.create_index([("user_id", ASCENDING), ("created_at", ASCENDING)])
+            self._db.pdf_documents.create_index([("doc_id", ASCENDING)], unique=True)
 
             # Seed sample notes if empty
             if self._db.notes.count_documents({}) == 0:
@@ -339,8 +347,20 @@ class MongoDBService:
             return NoteItem(**doc)
         return None
 
-    def save_note(self, title: str, subject: str, topic: str, raw_text: str, summary: Optional[str] = None, user_id: str = "guest_student") -> NoteItem:
-        note_id = f"note-{uuid.uuid4().hex[:8]}"
+    def save_note(
+        self,
+        title: str,
+        subject: str,
+        topic: str,
+        raw_text: str,
+        summary: Optional[str] = None,
+        telugu_summary: Optional[str] = None,
+        user_id: str = "guest_student",
+        note_id: Optional[str] = None
+    ) -> NoteItem:
+        if not note_id:
+            note_id = f"note-{uuid.uuid4().hex[:8]}"
+        now_iso = datetime.now(timezone.utc).isoformat()
         note_dict = {
             "id": note_id,
             "user_id": user_id,
@@ -349,13 +369,38 @@ class MongoDBService:
             "topic": topic,
             "raw_text": raw_text,
             "summary": summary,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "telugu_summary": telugu_summary,
+            "created_at": now_iso,
+            "updated_at": now_iso,
             "quiz_count": 0,
             "accuracy": 0.0
         }
         if self.is_connected:
-            self._db.notes.insert_one(note_dict)
+            existing = self._db.notes.find_one({"id": note_id})
+            if existing:
+                note_dict["created_at"] = existing.get("created_at", now_iso)
+                note_dict["quiz_count"] = existing.get("quiz_count", 0)
+                note_dict["accuracy"] = existing.get("accuracy", 0.0)
+            self._db.notes.replace_one({"id": note_id}, note_dict, upsert=True)
         return NoteItem(**note_dict)
+
+    def update_note(self, note_id: str, updates: Dict[str, Any], user_id: Optional[str] = None) -> Optional[NoteItem]:
+        if not self.is_connected:
+            return None
+        updates_clean = {k: v for k, v in updates.items() if v is not None and k not in ("id", "_id")}
+        updates_clean["updated_at"] = datetime.now(timezone.utc).isoformat()
+        query: Dict[str, Any] = {"id": note_id}
+        if user_id:
+            query["$or"] = [{"user_id": user_id}, {"user_id": "guest_student"}]
+        doc = self._db.notes.find_one_and_update(
+            query,
+            {"$set": updates_clean},
+            return_document=True
+        )
+        if doc:
+            doc.pop("_id", None)
+            return NoteItem(**doc)
+        return None
 
     def delete_note(self, note_id: str) -> bool:
         if not self.is_connected:
@@ -510,36 +555,291 @@ class MongoDBService:
                 pass
         return cards
 
-    def add_flashcard(self, subject: str, topic: str, front: str, back: str, formula_or_code: Optional[str] = None, difficulty: str = "medium", user_id: str = "guest_student") -> FlashcardItem:
-        fc_id = f"fc-{uuid.uuid4().hex[:8]}"
+    def add_flashcard(
+        self,
+        subject: str,
+        topic: str,
+        front: str,
+        back: str,
+        formula_or_code: Optional[str] = None,
+        difficulty: str = "medium",
+        is_bookmarked: bool = False,
+        learning_status: str = "learning",
+        note_id: Optional[str] = None,
+        user_id: str = "guest_student",
+        card_id: Optional[str] = None
+    ) -> FlashcardItem:
+        if not card_id:
+            card_id = f"fc-{uuid.uuid4().hex[:8]}"
+        now_iso = datetime.now(timezone.utc).isoformat()
         doc = {
-            "id": fc_id,
+            "id": card_id,
             "user_id": user_id,
+            "note_id": note_id,
             "subject": subject,
             "topic": topic,
             "front_prompt": front,
             "back_answer": back,
             "formula_or_code": formula_or_code,
             "difficulty": difficulty,
+            "is_bookmarked": is_bookmarked,
+            "learning_status": learning_status,
             "review_count": 0,
-            "next_review": datetime.now(timezone.utc).isoformat()
+            "next_review": now_iso,
+            "updated_at": now_iso
         }
         if self.is_connected:
-            self._db.flashcards.insert_one(doc)
+            self._db.flashcards.replace_one({"id": card_id}, doc, upsert=True)
         return FlashcardItem(**doc)
 
-    def review_flashcard(self, card_id: str, rating: str) -> Optional[FlashcardItem]:
+    def save_flashcards_batch(self, cards: List[Dict[str, Any]], user_id: str = "guest_student") -> List[FlashcardItem]:
+        saved = []
+        for card_data in cards:
+            c = self.add_flashcard(
+                subject=card_data.get("subject", "General"),
+                topic=card_data.get("topic", "General"),
+                front=card_data.get("front_prompt", ""),
+                back=card_data.get("back_answer", ""),
+                formula_or_code=card_data.get("formula_or_code"),
+                difficulty=card_data.get("difficulty", "medium"),
+                is_bookmarked=card_data.get("is_bookmarked", False),
+                learning_status=card_data.get("learning_status", "learning"),
+                note_id=card_data.get("note_id"),
+                user_id=user_id,
+                card_id=card_data.get("id")
+            )
+            saved.append(c)
+        return saved
+
+    def update_flashcard(self, card_id: str, updates: Dict[str, Any], user_id: Optional[str] = None) -> Optional[FlashcardItem]:
+        if not self.is_connected:
+            return None
+        updates_clean = {k: v for k, v in updates.items() if v is not None and k not in ("id", "_id")}
+        updates_clean["updated_at"] = datetime.now(timezone.utc).isoformat()
+        query: Dict[str, Any] = {"id": card_id}
+        if user_id:
+            query["$or"] = [{"user_id": user_id}, {"user_id": "guest_student"}]
+        doc = self._db.flashcards.find_one_and_update(
+            query,
+            {"$set": updates_clean},
+            return_document=True
+        )
+        if doc:
+            doc.pop("_id", None)
+            return FlashcardItem(**doc)
+        return None
+
+    def review_flashcard(self, card_id: str, rating: str, learning_status: Optional[str] = None) -> Optional[FlashcardItem]:
         if not self.is_connected:
             return None
         now_iso = datetime.now(timezone.utc).isoformat()
+        update_set: Dict[str, Any] = {
+            "difficulty": rating,
+            "next_review": now_iso,
+            "updated_at": now_iso
+        }
+        if learning_status:
+            update_set["learning_status"] = learning_status
+        elif rating == "easy":
+            update_set["learning_status"] = "known"
+        elif rating == "medium":
+            update_set["learning_status"] = "learning"
+        elif rating == "hard":
+            update_set["learning_status"] = "unknown"
+
         doc = self._db.flashcards.find_one_and_update(
             {"id": card_id},
             {
                 "$inc": {"review_count": 1},
-                "$set": {"difficulty": rating, "next_review": now_iso}
+                "$set": update_set
             },
             return_document=True
         )
+        if doc:
+            doc.pop("_id", None)
+            return FlashcardItem(**doc)
+        return None
+
+    # -------------------------------------------------------------
+    # Scanned Notes & History Operations
+    # -------------------------------------------------------------
+    def save_scan(self, scan_data: Dict[str, Any], user_id: str = "guest_student") -> Dict[str, Any]:
+        scan_id = scan_data.get("id") or scan_data.get("scan_id") or f"scan-{uuid.uuid4().hex[:8]}"
+        doc = {
+            "id": scan_id,
+            "user_id": user_id,
+            "text": scan_data.get("text", ""),
+            "subject": scan_data.get("subject", "General Engineering"),
+            "topic": scan_data.get("topic", "Core Concepts"),
+            "confidence": scan_data.get("confidence", "High"),
+            "uncertain_segments": scan_data.get("uncertain_segments", []),
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        if self.is_connected:
+            self._db.scans.replace_one({"id": scan_id}, doc, upsert=True)
+        return doc
+
+    def get_scan_history(self, user_id: str = "guest_student", limit: int = 20) -> List[Dict[str, Any]]:
+        if not self.is_connected or self._db is None:
+            return []
+        cursor = self._db.scans.find({"$or": [{"user_id": user_id}, {"user_id": "guest_student"}]}).sort("created_at", -1).limit(limit)
+        res = []
+        for doc in cursor:
+            doc.pop("_id", None)
+            res.append(doc)
+        return res
+
+    # -------------------------------------------------------------
+    # Chat Sessions Operations
+    # -------------------------------------------------------------
+    def save_chat_message(
+        self,
+        session_id: str,
+        user_id: str,
+        user_message: Dict[str, Any],
+        ai_reply: Dict[str, Any],
+        subject: Optional[str] = None,
+        topic: Optional[str] = None
+    ) -> Dict[str, Any]:
+        now_iso = datetime.now(timezone.utc).isoformat()
+        user_text = user_message.get("content", "")
+        title = topic or (user_text[:35] + ("..." if len(user_text) > 35 else ""))
+        if not self.is_connected or self._db is None:
+            return {}
+        existing = self._db.chat_sessions.find_one({"session_id": session_id})
+        if existing:
+            self._db.chat_sessions.update_one(
+                {"session_id": session_id},
+                {
+                    "$push": {"messages": {"$each": [user_message, ai_reply]}},
+                    "$set": {
+                        "updated_at": now_iso,
+                        "subject": subject or existing.get("subject", "General Engineering"),
+                        "topic": topic or existing.get("topic", "Core Concepts")
+                    }
+                }
+            )
+        else:
+            new_session = {
+                "session_id": session_id,
+                "user_id": user_id,
+                "title": title or "Chat Session",
+                "subject": subject or "General Engineering",
+                "topic": topic or "Core Concepts",
+                "messages": [user_message, ai_reply],
+                "created_at": now_iso,
+                "updated_at": now_iso
+            }
+            self._db.chat_sessions.insert_one(new_session)
+        return {"session_id": session_id, "updated_at": now_iso}
+
+    def get_chat_sessions(self, user_id: str = "guest_student", limit: int = 20) -> List[Dict[str, Any]]:
+        if not self.is_connected or self._db is None:
+            return []
+        cursor = self._db.chat_sessions.find({"$or": [{"user_id": user_id}, {"user_id": "guest_student"}]}).sort("updated_at", -1).limit(limit)
+        res = []
+        for doc in cursor:
+            doc.pop("_id", None)
+            res.append(doc)
+        return res
+
+    def get_chat_session(self, session_id: str, user_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        if not self.is_connected or self._db is None:
+            return None
+        query: Dict[str, Any] = {"session_id": session_id}
+        if user_id:
+            query["$or"] = [{"user_id": user_id}, {"user_id": "guest_student"}]
+        doc = self._db.chat_sessions.find_one(query)
+        if doc:
+            doc.pop("_id", None)
+            return doc
+        return None
+
+    # -------------------------------------------------------------
+    # Active Quiz Progress Operations
+    # -------------------------------------------------------------
+    def save_quiz_progress(
+        self,
+        quiz_id: str,
+        answers: Dict[str, int],
+        current_question_index: int,
+        time_taken_seconds: int,
+        is_completed: bool,
+        user_id: str = "guest_student",
+        quiz_meta: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        now_iso = datetime.now(timezone.utc).isoformat()
+        doc = {
+            "quiz_id": quiz_id,
+            "user_id": user_id,
+            "answers": answers,
+            "current_question_index": current_question_index,
+            "time_taken_seconds": time_taken_seconds,
+            "is_completed": is_completed,
+            "updated_at": now_iso
+        }
+        if quiz_meta:
+            for k in ["title", "subject", "topic", "difficulty", "total_questions", "questions"]:
+                if k in quiz_meta and quiz_meta[k] is not None:
+                    doc[k] = quiz_meta[k]
+        if self.is_connected:
+            self._db.quiz_progress.replace_one({"quiz_id": quiz_id, "user_id": user_id}, doc, upsert=True)
+        return doc
+
+    def get_active_quiz(self, user_id: str = "guest_student") -> Optional[Dict[str, Any]]:
+        if not self.is_connected or self._db is None:
+            return None
+        doc = self._db.quiz_progress.find_one(
+            {"user_id": user_id, "is_completed": False},
+            sort=[("updated_at", -1)]
+        )
+        if doc:
+            doc.pop("_id", None)
+            return doc
+        return None
+
+    def complete_quiz_progress(self, quiz_id: str, user_id: str = "guest_student"):
+        if self.is_connected and self._db is not None:
+            self._db.quiz_progress.update_one(
+                {"quiz_id": quiz_id, "user_id": user_id},
+                {"$set": {"is_completed": True, "updated_at": datetime.now(timezone.utc).isoformat()}}
+            )
+
+    # -------------------------------------------------------------
+    # User Preferences Operations
+    # -------------------------------------------------------------
+    def save_user_preferences(self, user_id: str, preferences: Dict[str, Any]) -> Dict[str, Any]:
+        now_iso = datetime.now(timezone.utc).isoformat()
+        clean_pref = {
+            "user_id": user_id,
+            "preferred_language": preferences.get("preferred_language", "en"),
+            "default_difficulty": preferences.get("default_difficulty", "medium"),
+            "default_quiz_questions": preferences.get("default_quiz_questions", 5),
+            "study_mode": preferences.get("study_mode", "standard"),
+            "theme": preferences.get("theme", "dark"),
+            "auto_save_enabled": preferences.get("auto_save_enabled", True),
+            "updated_at": now_iso
+        }
+        if self.is_connected:
+            self._db.user_preferences.replace_one({"user_id": user_id}, clean_pref, upsert=True)
+        return clean_pref
+
+    def get_user_preferences(self, user_id: str) -> Dict[str, Any]:
+        if self.is_connected and self._db is not None:
+            doc = self._db.user_preferences.find_one({"user_id": user_id})
+            if doc:
+                doc.pop("_id", None)
+                return doc
+        return {
+            "user_id": user_id,
+            "preferred_language": "en",
+            "default_difficulty": "medium",
+            "default_quiz_questions": 5,
+            "study_mode": "standard",
+            "theme": "dark",
+            "auto_save_enabled": True
+        }
+
         if doc:
             doc.pop("_id", None)
             return FlashcardItem(**doc)
@@ -567,6 +867,13 @@ class MongoDBService:
 
         total_quizzes = len(attempts)
         avg_acc = (sum(a.get("score_percentage", 0.0) for a in attempts) / total_quizzes) if total_quizzes > 0 else 0.0
+
+        total_fc_reviewed = 0
+        try:
+            fc_docs = list(self._db.flashcards.find({"$or": [{"user_id": user_id}, {"user_id": "guest_student"}]}))
+            total_fc_reviewed = sum(c.get("review_count", 0) for c in fc_docs)
+        except Exception:
+            pass
 
         subject_map: Dict[str, Dict[str, Any]] = {}
         weak_topics_set = set()
@@ -601,11 +908,99 @@ class MongoDBService:
             quizzes_completed=total_quizzes,
             average_accuracy=round(avg_acc, 1),
             study_streak_days=3 if total_quizzes > 0 else 0,
+            flashcards_reviewed=total_fc_reviewed,
             subject_performance=subject_performance,
             weak_topics=list(weak_topics_set)[:6],
             recent_activity=recent,
             recommended_revision=recommended
         )
+
+    # PDF Document Operations
+    def save_pdf_document(self, doc_data: Dict[str, Any], user_id: str = "guest_student") -> Dict[str, Any]:
+        if not self.is_connected or self._db is None:
+            return doc_data
+        try:
+            doc = dict(doc_data)
+            doc["user_id"] = user_id
+            doc["updated_at"] = datetime.now(timezone.utc).isoformat()
+            self._db.pdf_documents.update_one(
+                {"doc_id": doc.get("doc_id")},
+                {"$set": doc},
+                upsert=True
+            )
+            # Also sync into scans collection for unified recent scan history
+            self._db.scans.update_one(
+                {"id": doc.get("doc_id")},
+                {"$set": {
+                    "id": doc.get("doc_id"),
+                    "user_id": user_id,
+                    "text": doc.get("extracted_text") or doc.get("extracted_markdown"),
+                    "subject": doc.get("subject", "Engineering"),
+                    "topic": doc.get("topic", "Core Concepts"),
+                    "confidence": "High (PDF Document)",
+                    "uncertain_segments": [],
+                    "source_type": "pdf",
+                    "file_name": doc.get("file_name"),
+                    "created_at": doc.get("created_at") or datetime.now(timezone.utc).isoformat()
+                }},
+                upsert=True
+            )
+            return doc
+        except Exception as e:
+            logger.warning(f"Failed to save PDF document to MongoDB: {e}")
+            return doc_data
+
+    def get_pdf_document(self, doc_id: str, user_id: str = "guest_student") -> Optional[Dict[str, Any]]:
+        if not self.is_connected or self._db is None:
+            return None
+        try:
+            doc = self._db.pdf_documents.find_one({"doc_id": doc_id})
+            if doc and "_id" in doc:
+                del doc["_id"]
+            return doc
+        except Exception as e:
+            logger.warning(f"Failed to get PDF document from MongoDB: {e}")
+            return None
+
+    def update_pdf_document(self, doc_id: str, updates: Dict[str, Any], user_id: str = "guest_student") -> Optional[Dict[str, Any]]:
+        if not self.is_connected or self._db is None:
+            return None
+        try:
+            updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+            self._db.pdf_documents.update_one(
+                {"doc_id": doc_id},
+                {"$set": updates}
+            )
+            # If markdown or topic was updated, update scans entry as well
+            scan_updates: Dict[str, Any] = {}
+            if "extracted_markdown" in updates:
+                scan_updates["text"] = updates["extracted_markdown"]
+            if "subject" in updates:
+                scan_updates["subject"] = updates["subject"]
+            if "topic" in updates:
+                scan_updates["topic"] = updates["topic"]
+            if scan_updates:
+                self._db.scans.update_one({"id": doc_id}, {"$set": scan_updates})
+            return self.get_pdf_document(doc_id, user_id)
+        except Exception as e:
+            logger.warning(f"Failed to update PDF document in MongoDB: {e}")
+            return None
+
+    def get_pdf_history(self, user_id: str = "guest_student", limit: int = 20) -> List[Dict[str, Any]]:
+        if not self.is_connected or self._db is None:
+            return []
+        try:
+            query = {"user_id": {"$in": [user_id, "guest_student"]}}
+            cursor = self._db.pdf_documents.find(query).sort("created_at", -1).limit(limit)
+            items = []
+            for doc in cursor:
+                if "_id" in doc:
+                    del doc["_id"]
+                items.append(doc)
+            return items
+        except Exception as e:
+            logger.warning(f"Failed to query PDF history from MongoDB: {e}")
+            return []
 
 
 mongodb_service = MongoDBService()

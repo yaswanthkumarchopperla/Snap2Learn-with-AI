@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import {
@@ -13,15 +13,21 @@ import {
   Sparkles,
   AlertTriangle,
   Play,
+  Pause,
   RefreshCw,
   BookOpen
 } from 'lucide-react';
 import { SidebarLayout } from '../components/Sidebar';
 import { MathRenderer } from '../components/MathRenderer';
+import { AutosaveIndicator } from '../components/AutosaveIndicator';
+import { useAutosave } from '../contexts/AutosaveContext';
 import { api } from '../services/api';
+import { useQuizTimer } from '../hooks/useQuizTimer';
+import { getQuizDurationSeconds, formatQuizTime } from '../config/quizConfig';
 import {
   QuizGenerateResponse,
   QuizSubmitResponse,
+  ActiveQuizResponse,
   Difficulty,
   QuestionClientView
 } from '../types';
@@ -29,6 +35,7 @@ import {
 export const QuizPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { triggerAutosave } = useAutosave();
 
   const studyText = location.state?.text ||
     'Let A be an n × n square matrix. A scalar λ is called an eigenvalue of A if there exists a non-zero column vector v such that A v = λ v. The characteristic equation is det(A - λ I) = 0. Trace equals sum of eigenvalues and determinant equals product of eigenvalues.';
@@ -40,75 +47,36 @@ export const QuizPage: React.FC = () => {
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [timedMode, setTimedMode] = useState<boolean>(true);
 
-  // Active Quiz State
+  // Active Quiz State & Recovery
+  const [activeQuizRestored, setActiveQuizRestored] = useState<ActiveQuizResponse | null>(null);
   const [quizState, setQuizState] = useState<'config' | 'taking' | 'submitted'>('config');
   const [quizData, setQuizData] = useState<QuizGenerateResponse | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, number>>({});
-  const [secondsElapsed, setSecondsElapsed] = useState(0);
-  const timerRef = useRef<any>(null);
 
   // Results State
   const [submitResult, setSubmitResult] = useState<QuizSubmitResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Timer runner
-  useEffect(() => {
-    if (quizState === 'taking' && timedMode) {
-      timerRef.current = setInterval(() => {
-        setSecondsElapsed((prev) => prev + 1);
-      }, 1000);
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current);
-    }
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [quizState, timedMode]);
-
-  // Start Quiz: calls backend /api/quiz/generate
-  const handleStartQuiz = async () => {
-    setLoading(true);
-    setErrorMsg(null);
-    try {
-      const data = await api.generateQuiz({
-        study_text: studyText,
-        subject,
-        topic,
-        num_questions: numQuestions,
-        difficulty,
-      });
-      setQuizData(data);
-      setCurrentIndex(0);
-      setSelectedAnswers({});
-      setSecondsElapsed(0);
-      setQuizState('taking');
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to generate quiz. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Select option for current question
-  const handleSelectOption = (questionId: string, optionIndex: number) => {
-    setSelectedAnswers((prev) => ({
-      ...prev,
-      [questionId]: optionIndex,
-    }));
-  };
+  // References to avoid stale closures in timer expiration callback
+  const quizDataRef = useRef<QuizGenerateResponse | null>(null);
+  quizDataRef.current = quizData;
+  const selectedAnswersRef = useRef<Record<string, number>>({});
+  selectedAnswersRef.current = selectedAnswers;
 
   // Submit Quiz: calls backend /api/quiz/submit
-  const handleSubmitQuiz = async () => {
-    if (!quizData) return;
+  const handleSubmitQuiz = useCallback(async (isTimeout: boolean = false) => {
+    const activeQuiz = quizDataRef.current;
+    if (!activeQuiz) return;
+    stopTimer();
     setLoading(true);
     setErrorMsg(null);
     try {
       const result = await api.submitQuiz({
-        quiz_id: quizData.quiz_id,
-        answers: selectedAnswers,
-        time_taken_seconds: secondsElapsed,
+        quiz_id: activeQuiz.quiz_id,
+        answers: selectedAnswersRef.current,
+        time_taken_seconds: timeTakenSeconds,
       });
       setSubmitResult(result);
       setQuizState('submitted');
@@ -127,12 +95,143 @@ export const QuizPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  // Countdown Timer based on absolute end timestamp
+  const {
+    remainingSeconds,
+    totalDurationSeconds,
+    timeTakenSeconds,
+    status: timerStatus,
+    isRunning: isTimerRunning,
+    isPaused: isTimerPaused,
+    formattedTime,
+    startTimer,
+    pauseTimer,
+    resumeTimer,
+    stopTimer,
+    resetTimer,
+  } = useQuizTimer({
+    onTimeExpired: () => {
+      handleSubmitQuiz(true);
+    },
+  });
+
+  // Check for active incomplete quiz on mount
+  useEffect(() => {
+    api.getActiveQuiz().then((res) => {
+      if (res.has_active_quiz && res.questions && res.questions.length > 0) {
+        setActiveQuizRestored(res);
+      }
+    }).catch(() => {});
+  }, []);
+
+  const handleResumeActiveQuiz = () => {
+    if (!activeQuizRestored) return;
+    const duration = getQuizDurationSeconds(
+      activeQuizRestored.total_questions || activeQuizRestored.questions.length,
+      (activeQuizRestored.difficulty as Difficulty) || 'medium'
+    );
+    const elapsed = activeQuizRestored.time_taken_seconds || 0;
+    const remaining = Math.max(0, duration - elapsed);
+
+    setQuizData({
+      quiz_id: activeQuizRestored.quiz_id || 'active-quiz',
+      title: activeQuizRestored.title || 'In-Progress Assessment',
+      subject: activeQuizRestored.subject || 'Engineering',
+      topic: activeQuizRestored.topic || 'Core Concepts',
+      difficulty: activeQuizRestored.difficulty || 'medium',
+      total_questions: activeQuizRestored.total_questions || activeQuizRestored.questions.length,
+      questions: activeQuizRestored.questions,
+      is_demo: false,
+    });
+    setCurrentIndex(activeQuizRestored.current_question_index || 0);
+    setSelectedAnswers(activeQuizRestored.answers || {});
+    setQuizState('taking');
+    setActiveQuizRestored(null);
+
+    // If remaining time has already expired, immediately submit
+    if (timedMode) {
+      if (remaining <= 0) {
+        handleSubmitQuiz(true);
+      } else {
+        startTimer(duration, remaining);
+      }
+    }
   };
 
-  const formatTime = (secs: number) => {
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  // Start Quiz: calls backend /api/quiz/generate
+  const handleStartQuiz = async () => {
+    setLoading(true);
+    setErrorMsg(null);
+    resetTimer(); // 5. Keep quiz timer completely stopped during question generation
+    try {
+      const data = await api.generateQuiz({
+        study_text: studyText,
+        subject,
+        topic,
+        num_questions: numQuestions,
+        difficulty,
+      });
+      // 6 & 7. Wait until all questions are successfully generated and rendered
+      setQuizData(data);
+      setCurrentIndex(0);
+      setSelectedAnswers({});
+      setQuizState('taking');
+
+      // 8. Start the countdown timer ONLY when the first question is visible and the quiz is ready
+      const allocatedDuration = getQuizDurationSeconds(numQuestions, difficulty);
+      if (timedMode) {
+        startTimer(allocatedDuration);
+      }
+    } catch (err: any) {
+      // 4. If generation fails: stop loading state, do not start timer, show error and retry
+      setErrorMsg(err.message || 'Failed to generate quiz. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Select option for current question and immediately autosave
+  const handleSelectOption = (questionId: string, optionIndex: number) => {
+    const newAnswers = {
+      ...selectedAnswers,
+      [questionId]: optionIndex,
+    };
+    setSelectedAnswers(newAnswers);
+
+    if (quizData) {
+      triggerAutosave(async () => {
+        return await api.saveQuizProgress({
+          quiz_id: quizData.quiz_id,
+          answers: newAnswers,
+          current_question_index: currentIndex,
+          time_taken_seconds: timeTakenSeconds,
+        });
+      }, {
+        type: 'quiz_progress',
+        action: 'update',
+        endpoint: `/api/quiz/${quizData.quiz_id}/progress`,
+        payload: {
+          quiz_id: quizData.quiz_id,
+          answers: newAnswers,
+          current_question_index: currentIndex,
+          time_taken_seconds: timeTakenSeconds,
+        }
+      });
+    }
+  };
+
+  const goToQuestion = (targetIdx: number) => {
+    setCurrentIndex(targetIdx);
+    if (quizData) {
+      api.saveQuizProgress({
+        quiz_id: quizData.quiz_id,
+        answers: selectedAnswers,
+        current_question_index: targetIdx,
+        time_taken_seconds: timeTakenSeconds,
+      }).catch(() => {});
+    }
   };
 
   const currentQ: QuestionClientView | undefined = quizData?.questions[currentIndex];
@@ -155,18 +254,96 @@ export const QuizPage: React.FC = () => {
             </h1>
           </div>
 
-          {quizState === 'taking' && timedMode && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface border border-border text-xs font-mono text-secondary">
-              <Clock className="w-4 h-4" />
-              <span>{formatTime(secondsElapsed)}</span>
-            </div>
-          )}
+          <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+            <AutosaveIndicator compact={quizState === 'taking'} />
+            {quizState === 'taking' && timedMode && (
+              <div className="flex items-center gap-2">
+                <div
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-mono transition-colors ${
+                    remainingSeconds <= 60
+                      ? 'bg-red-500/15 border-red-500/40 text-red-400 animate-pulse font-bold'
+                      : 'bg-surface border-border text-secondary'
+                  }`}
+                >
+                  <Clock className="w-4 h-4" />
+                  <span className="font-bold tracking-wider">{formattedTime}</span>
+                </div>
+                {isTimerRunning && (
+                  <button
+                    type="button"
+                    onClick={pauseTimer}
+                    title="Pause timer"
+                    className="px-2.5 py-1.5 rounded-xl bg-surface border border-border text-foreground-muted hover:text-foreground hover:bg-surface-elevated text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                  >
+                    <Pause className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Pause</span>
+                  </button>
+                )}
+                {isTimerPaused && (
+                  <button
+                    type="button"
+                    onClick={resumeTimer}
+                    title="Resume timer"
+                    className="px-3 py-1.5 rounded-xl bg-secondary text-black font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
+                  >
+                    <Play className="w-3.5 h-3.5" />
+                    <span>Resume</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
+        {/* Unfinished Quiz Auto-Restoration Alert */}
+        {activeQuizRestored && (
+          <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-primary/10 via-secondary/10 to-primary/10 border border-secondary/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-secondary" />
+                <h4 className="text-xs sm:text-sm font-bold text-foreground">
+                  Unfinished Assessment Detected
+                </h4>
+              </div>
+              <p className="text-xs text-foreground-muted">
+                You have a saved quiz session: <strong className="text-foreground">{activeQuizRestored.title}</strong> with{' '}
+                {Object.keys(activeQuizRestored.answers || {}).length} of {activeQuizRestored.total_questions || activeQuizRestored.questions.length} questions already answered.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+              <button
+                type="button"
+                onClick={() => setActiveQuizRestored(null)}
+                className="px-3 py-1.5 rounded-xl text-xs text-foreground-muted hover:text-foreground hover:bg-surface transition-colors cursor-pointer"
+              >
+                Start Fresh
+              </button>
+              <button
+                type="button"
+                onClick={handleResumeActiveQuiz}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-primary to-secondary text-white text-xs font-semibold shadow-md glow-primary hover:opacity-95 transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <Play className="w-3.5 h-3.5" />
+                <span>Resume Saved Quiz</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {errorMsg && (
-          <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 shrink-0" />
-            <span>{errorMsg}</span>
+          <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleStartQuiz}
+              className="px-3 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-white font-semibold text-xs flex items-center gap-1.5 self-end sm:self-auto transition-colors cursor-pointer"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Retry Generation</span>
+            </button>
           </div>
         )}
 
@@ -176,7 +353,7 @@ export const QuizPage: React.FC = () => {
             <div>
               <h3 className="text-lg font-bold text-foreground mb-1">Configure Your Assessment</h3>
               <p className="text-xs text-foreground-muted">
-                Questions will be generated dynamically from your confirmed study notes.
+                Questions will be generated dynamically from your confirmed study notes. The quiz timer starts only after questions are ready.
               </p>
             </div>
 
@@ -238,8 +415,10 @@ export const QuizPage: React.FC = () => {
               <div className="flex items-center gap-3">
                 <Clock className="w-5 h-5 text-secondary" />
                 <div>
-                  <p className="text-xs font-bold text-foreground">Timed Mode</p>
-                  <p className="text-[11px] text-foreground-muted">Track your answering speed for exam readiness</p>
+                  <p className="text-xs font-bold text-foreground">Timed Exam Mode</p>
+                  <p className="text-[11px] text-foreground-muted">
+                    Allocated duration: <strong className="text-secondary font-mono">{formatQuizTime(getQuizDurationSeconds(numQuestions, difficulty))}</strong> ({Math.round(getQuizDurationSeconds(numQuestions, difficulty)/60)} minutes)
+                  </p>
                 </div>
               </div>
               <input
@@ -250,23 +429,30 @@ export const QuizPage: React.FC = () => {
               />
             </div>
 
-            <button
-              onClick={handleStartQuiz}
-              disabled={loading}
-              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-primary to-secondary text-white font-semibold text-xs shadow-lg glow-primary hover:opacity-95 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Generating Question Set with Gemini AI...</span>
-                </>
-              ) : (
-                <>
-                  <Play className="w-4 h-4" />
-                  <span>Start Practice Quiz Now</span>
-                </>
-              )}
-            </button>
+            {/* Dedicated Loading Card during question generation */}
+            {loading ? (
+              <div className="p-8 rounded-2xl bg-surface border border-secondary/30 text-center flex flex-col items-center justify-center gap-3 animate-in fade-in">
+                <RefreshCw className="w-8 h-8 text-secondary animate-spin" />
+                <h4 className="text-sm sm:text-base font-bold text-foreground">
+                  Preparing your quiz...
+                </h4>
+                <p className="text-xs text-foreground-muted max-w-md">
+                  Generating {numQuestions} fresh questions grounded in your notes at {difficulty} difficulty with KaTeX formatting and deterministic scoring.
+                </p>
+                <div className="px-3 py-1 rounded-full bg-secondary/10 border border-secondary/20 text-[11px] text-secondary font-mono">
+                  ⏱ Quiz timer is stopped and will start only when Question 1 appears
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={handleStartQuiz}
+                disabled={loading}
+                className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-primary to-secondary text-white font-semibold text-xs shadow-lg glow-primary hover:opacity-95 disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Play className="w-4 h-4" />
+                <span>Start Practice Quiz ({formatQuizTime(getQuizDurationSeconds(numQuestions, difficulty))})</span>
+              </button>
+            )}
           </div>
         )}
 
@@ -293,100 +479,119 @@ export const QuizPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Question Card */}
-            <div className="glass-card p-6 sm:p-8 space-y-6">
-              <div className="flex items-center justify-between">
-                <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-surface text-secondary border border-border">
-                  {currentQ.topic_tag}
-                </span>
-                <span className="text-xs text-foreground-muted capitalize">
-                  {quizData.difficulty}
-                </span>
-              </div>
-
-              <h2 className="text-base sm:text-lg font-bold text-foreground leading-relaxed">
-                <MathRenderer content={currentQ.question} />
-              </h2>
-
-              {/* 4 Choices */}
-              <div className="space-y-3">
-                {currentQ.options.map((opt, optIdx) => {
-                  const isSelected = selectedAnswers[currentQ.id] === optIdx;
-                  const optionLetters = ['A', 'B', 'C', 'D'];
-                  return (
-                    <button
-                      key={optIdx}
-                      type="button"
-                      onClick={() => handleSelectOption(currentQ.id, optIdx)}
-                      className={`w-full p-4 rounded-xl border text-left transition-all flex items-center gap-3.5 ${
-                        isSelected
-                          ? 'bg-primary/20 border-primary text-white shadow-md glow-primary'
-                          : 'bg-surface border-border text-foreground-muted hover:border-border-highlight hover:text-foreground'
-                      }`}
-                    >
-                      <span
-                        className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
-                          isSelected
-                            ? 'bg-primary text-white'
-                            : 'bg-surface-elevated text-foreground-muted border border-border'
-                        }`}
-                      >
-                        {optionLetters[optIdx]}
-                      </span>
-                      <div className="text-xs sm:text-sm flex-1">
-                        <MathRenderer content={opt} />
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Navigation Controls */}
-              <div className="pt-4 border-t border-border flex items-center justify-between">
+            {/* Paused Overlay */}
+            {isTimerPaused ? (
+              <div className="glass-card p-10 sm:p-12 text-center space-y-4 border border-secondary/30 animate-in fade-in">
+                <div className="w-12 h-12 rounded-full bg-secondary/20 text-secondary mx-auto flex items-center justify-center">
+                  <Pause className="w-6 h-6" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-base sm:text-lg font-bold text-foreground">Quiz Assessment Paused</h3>
+                  <p className="text-xs text-foreground-muted">
+                    Timer is safely paused at <strong className="text-secondary font-mono">{formattedTime}</strong>. Questions are hidden while paused.
+                  </p>
+                </div>
                 <button
                   type="button"
-                  onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
-                  disabled={currentIndex === 0}
-                  className="px-4 py-2 rounded-xl bg-surface border border-border hover:bg-surface-hover text-foreground text-xs font-semibold disabled:opacity-30 transition-colors flex items-center gap-1.5"
+                  onClick={resumeTimer}
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white font-bold text-xs shadow-md glow-primary hover:opacity-95 transition-all inline-flex items-center gap-1.5 cursor-pointer"
                 >
-                  <ArrowLeft className="w-3.5 h-3.5" /> Previous
+                  <Play className="w-4 h-4" />
+                  <span>Resume Assessment</span>
                 </button>
-
-                {currentIndex < quizData.total_questions - 1 ? (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCurrentIndex((prev) =>
-                        Math.min(quizData.total_questions - 1, prev + 1)
-                      )
-                    }
-                    className="px-5 py-2 rounded-xl bg-primary text-white text-xs font-semibold shadow-md glow-primary hover:bg-primary-hover transition-all flex items-center gap-1.5"
-                  >
-                    <span>Next</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleSubmitQuiz}
-                    disabled={loading}
-                    className="px-6 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-black font-bold text-xs shadow-lg hover:opacity-95 disabled:opacity-50 transition-all flex items-center gap-1.5"
-                  >
-                    {loading ? (
-                      <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>Evaluating...</span>
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span>Submit Final Answers</span>
-                      </>
-                    )}
-                  </button>
-                )}
               </div>
-            </div>
+            ) : (
+              /* Question Card */
+              <div className="glass-card p-6 sm:p-8 space-y-6">
+                <div className="flex items-center justify-between">
+                  <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-surface text-secondary border border-border">
+                    {currentQ.topic_tag}
+                  </span>
+                  <span className="text-xs text-foreground-muted capitalize">
+                    {quizData.difficulty}
+                  </span>
+                </div>
+
+                <h2 className="text-base sm:text-lg font-bold text-foreground leading-relaxed">
+                  <MathRenderer content={currentQ.question} />
+                </h2>
+
+                {/* 4 Choices */}
+                <div className="space-y-3">
+                  {currentQ.options.map((opt, optIdx) => {
+                    const isSelected = selectedAnswers[currentQ.id] === optIdx;
+                    const optionLetters = ['A', 'B', 'C', 'D'];
+                    return (
+                      <button
+                        key={optIdx}
+                        type="button"
+                        onClick={() => handleSelectOption(currentQ.id, optIdx)}
+                        className={`w-full p-4 rounded-xl border text-left transition-all flex items-center gap-3.5 ${
+                          isSelected
+                            ? 'bg-primary/20 border-primary text-white shadow-md glow-primary'
+                            : 'bg-surface border-border text-foreground-muted hover:border-border-highlight hover:text-foreground'
+                        }`}
+                      >
+                        <span
+                          className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
+                            isSelected
+                              ? 'bg-primary text-white'
+                              : 'bg-surface-elevated text-foreground-muted border border-border'
+                          }`}
+                        >
+                          {optionLetters[optIdx]}
+                        </span>
+                        <div className="text-xs sm:text-sm flex-1">
+                          <MathRenderer content={opt} />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Navigation Controls */}
+                <div className="pt-4 border-t border-border flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => goToQuestion(Math.max(0, currentIndex - 1))}
+                    disabled={currentIndex === 0}
+                    className="px-4 py-2 rounded-xl bg-surface border border-border hover:bg-surface-hover text-foreground text-xs font-semibold disabled:opacity-30 transition-colors flex items-center gap-1.5"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" /> Previous
+                  </button>
+
+                  {currentIndex < quizData.total_questions - 1 ? (
+                    <button
+                      type="button"
+                      onClick={() => goToQuestion(Math.min(quizData.total_questions - 1, currentIndex + 1))}
+                      className="px-5 py-2 rounded-xl bg-primary text-white text-xs font-semibold shadow-md glow-primary hover:bg-primary-hover transition-all flex items-center gap-1.5"
+                    >
+                      <span>Next</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleSubmitQuiz(false)}
+                      disabled={loading}
+                      className="px-6 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-black font-bold text-xs shadow-lg hover:opacity-95 disabled:opacity-50 transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      {loading ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Evaluating...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Submit Final Answers</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -440,7 +645,7 @@ export const QuizPage: React.FC = () => {
                 <div className="p-3 rounded-xl bg-surface border border-border">
                   <span className="text-[10px] text-foreground-muted block">Time Taken</span>
                   <span className="text-xl font-extrabold text-foreground">
-                    {formatTime(submitResult.time_taken_seconds)}
+                    {formatQuizTime(submitResult.time_taken_seconds)}
                   </span>
                 </div>
               </div>

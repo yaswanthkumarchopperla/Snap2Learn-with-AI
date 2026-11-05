@@ -12,6 +12,7 @@ import jwt
 from app.core.config import settings
 from app.services.storage_service import store
 from app.services.brevo_service import brevo_service
+from app.schemas.auth import UserPreferences
 
 logger = logging.getLogger("snap2learn.auth")
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -389,3 +390,22 @@ def login_as_guest():
         ),
         message="Guest session initialized"
     )
+
+
+@router.get("/preferences", response_model=UserPreferences)
+def get_preferences(authorization: Optional[str] = Header(None)):
+    """Retrieve saved student preferences (language, default difficulty, study mode)."""
+    user = get_optional_current_user(authorization)
+    user_id = user.id if user else "guest_student"
+    pref = store.get_user_preferences(user_id)
+    return UserPreferences(**pref)
+
+
+@router.put("/preferences", response_model=UserPreferences)
+def update_preferences(prefs: UserPreferences, authorization: Optional[str] = Header(None)):
+    """Autosave student preferences across devices."""
+    user = get_optional_current_user(authorization)
+    user_id = user.id if user else "guest_student"
+    saved = store.save_user_preferences(user_id, prefs.model_dump())
+    return UserPreferences(**saved)
+
