@@ -103,13 +103,15 @@ export const SettingsPage: React.FC = () => {
     <SidebarLayout>
       <div className="p-4 sm:p-6 lg:p-8 max-w-4xl w-full mx-auto space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
-              <Settings className="w-6 h-6 text-secondary" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.08]">
+          <div className="space-y-1">
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center">
+                <Settings className="w-4 h-4 text-indigo-400" />
+              </div>
               <span>Workspace Settings</span>
             </h1>
-            <p className="text-xs sm:text-sm text-foreground-muted mt-1">
+            <p className="text-xs sm:text-sm text-neutral-400">
               Customize your learning experience, regional languages, and account preferences.
             </p>
           </div>
@@ -125,34 +127,34 @@ export const SettingsPage: React.FC = () => {
 
         <div className="space-y-6">
           {/* Profile Card */}
-          <div className="glass-card p-6 space-y-4">
-            <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-              <User className="w-4 h-4 text-primary" />
+          <div className="bg-[#0c0c12] border border-white/[0.08] rounded-2xl p-6 space-y-4">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <User className="w-4 h-4 text-indigo-400" />
               <span>Student Profile</span>
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-foreground-muted mb-1.5">
+                <label className="block text-xs font-medium text-neutral-400 mb-1.5">
                   Display Name
                 </label>
                 <input
                   type="text"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-border text-foreground text-xs focus:outline-none focus:border-secondary"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white text-xs focus:outline-none focus:border-white/20"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-foreground-muted mb-1.5">
+                <label className="block text-xs font-medium text-neutral-400 mb-1.5">
                   Academic Branch
                 </label>
                 <input
                   type="text"
                   disabled
                   value={user?.collegeBranch || 'CSE-AIML (1st Year)'}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface/50 border border-border text-foreground-muted text-xs cursor-not-allowed"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.02] border border-white/[0.06] text-neutral-500 text-xs cursor-not-allowed"
                 />
               </div>
             </div>

@@ -25,31 +25,31 @@
 
 @layer base {
   :root {
-    --background: #080B18;
-    --surface: #11162A;
-    --surface-elevated: #181F38;
-    --surface-hover: #1F2847;
+    --background: #000000;
+    --surface: #0a0a0f;
+    --surface-elevated: #111116;
+    --surface-hover: #181820;
     --border: rgba(255, 255, 255, 0.08);
-    --border-highlight: rgba(117, 89, 255, 0.3);
+    --border-highlight: rgba(255, 255, 255, 0.18);
     
-    --primary: #7559FF;
-    --primary-hover: #6347EE;
-    --primary-glow: rgba(117, 89, 255, 0.25);
+    --primary: #6366F1;
+    --primary-hover: #4F46E5;
+    --primary-glow: rgba(99, 102, 241, 0.22);
     
-    --secondary: #22D3EE;
-    --secondary-hover: #06B6D4;
-    --secondary-glow: rgba(34, 211, 238, 0.25);
+    --secondary: #38BDF8;
+    --secondary-hover: #0EA5E9;
+    --secondary-glow: rgba(56, 189, 248, 0.22);
     
     --accent: #A855F7;
-    --accent-glow: rgba(168, 85, 247, 0.25);
+    --accent-glow: rgba(168, 85, 247, 0.22);
     
     --success: #10B981;
     --warning: #F59E0B;
     --error: #EF4444;
 
-    --foreground: #F8FAFC;
-    --foreground-muted: #94A3B8;
-    --foreground-subtle: #64748B;
+    --foreground: #FFFFFF;
+    --foreground-muted: #9CA3AF;
+    --foreground-subtle: #71717A;
   }
 
   .light {
@@ -58,18 +58,18 @@
     --surface-elevated: #F1F5F9;
     --surface-hover: #E2E8F0;
     --border: #E2E8F0;
-    --border-highlight: rgba(117, 89, 255, 0.4);
+    --border-highlight: rgba(99, 102, 241, 0.3);
 
-    --primary: #6347EE;
-    --primary-hover: #4F35DE;
-    --primary-glow: rgba(99, 71, 238, 0.15);
+    --primary: #4F46E5;
+    --primary-hover: #4338CA;
+    --primary-glow: rgba(79, 70, 229, 0.15);
 
-    --secondary: #0891B2;
-    --secondary-hover: #0E7490;
-    --secondary-glow: rgba(8, 145, 178, 0.15);
+    --secondary: #0284C7;
+    --secondary-hover: #0369A1;
+    --secondary-glow: rgba(2, 132, 199, 0.15);
 
-    --accent: #9333EA;
-    --accent-glow: rgba(147, 51, 234, 0.15);
+    --accent: #7E22CE;
+    --accent-glow: rgba(126, 34, 206, 0.15);
 
     --foreground: #0F172A;
     --foreground-muted: #475569;
@@ -90,7 +90,7 @@
 
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.025em;
   }
 
   code, pre, .font-mono {
@@ -98,25 +98,30 @@
   }
 }
 
-/* Glassmorphism Classes */
+/* Framer MCP Sleek Glassmorphism & Card Styles */
 .glass-panel {
-  background: rgba(17, 22, 42, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(10, 10, 15, 0.82);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border);
 }
 
 .light .glass-panel {
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.85);
   border: 1px solid var(--border);
 }
 
 .glass-card {
-  background: linear-gradient(135deg, rgba(24, 31, 56, 0.6) 0%, rgba(17, 22, 42, 0.8) 100%);
-  backdrop-filter: blur(8px);
+  background: #0c0c11;
   border: 1px solid var(--border);
-  border-radius: 1.25rem;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 1rem;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-card:hover {
+  border-color: var(--border-highlight);
+  box-shadow: 0 16px 36px -12px rgba(0, 0, 0, 0.7);
+  transform: translateY(-1.5px);
 }
 
 .glass-card:hover {

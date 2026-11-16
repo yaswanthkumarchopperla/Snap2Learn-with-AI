@@ -130,13 +130,15 @@ export const NotesPage: React.FC = () => {
     <SidebarLayout>
       <div className="p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
-              <BookOpen className="w-6 h-6 text-secondary" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.08]">
+          <div className="space-y-1">
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center">
+                <BookOpen className="w-4 h-4 text-indigo-400" />
+              </div>
               <span>My Notes Repository</span>
             </h1>
-            <p className="text-xs sm:text-sm text-foreground-muted mt-1">
+            <p className="text-xs sm:text-sm text-neutral-400">
               Your saved lecture transcriptions, OCR extractions, and confirmed notes.
             </p>
           </div>
@@ -145,7 +147,7 @@ export const NotesPage: React.FC = () => {
             <AutosaveIndicator compact={false} />
             <button
               onClick={() => navigate('/scanner')}
-              className="px-4 py-2 rounded-xl bg-primary text-white text-xs font-semibold shadow-md glow-primary hover:bg-primary-hover transition-all flex items-center gap-1.5 cursor-pointer"
+              className="px-4 py-2 rounded-full bg-white text-black hover:bg-neutral-200 text-xs font-semibold shadow-md transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
             >
               <Plus className="w-4 h-4" />
               <span>Scan New Note</span>
@@ -154,27 +156,27 @@ export const NotesPage: React.FC = () => {
         </div>
 
         {/* Filter & Search Bar */}
-        <div className="glass-card p-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="bg-[#0c0c12] p-3 rounded-2xl border border-white/[0.08] flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="relative w-full sm:w-80">
-            <Search className="w-4 h-4 text-foreground-muted absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Search by title, formula, or concept..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 rounded-xl bg-surface border border-border text-foreground text-xs focus:outline-none focus:border-secondary"
+              className="w-full pl-9 pr-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white text-xs focus:outline-none focus:border-white/20"
             />
           </div>
 
-          <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto">
+          <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto">
             {subjects.map((subj) => (
               <button
                 key={subj}
                 onClick={() => setSelectedSubject(subj)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all ${
+                className={`px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
                   selectedSubject === subj
-                    ? 'bg-primary text-white font-semibold shadow-sm'
-                    : 'bg-surface border border-border text-foreground-muted hover:text-foreground'
+                    ? 'bg-white text-black font-semibold shadow-sm'
+                    : 'bg-white/[0.04] border border-white/[0.08] text-neutral-400 hover:text-white hover:border-white/20'
                 }`}
               >
                 {subj}

@@ -88,45 +88,34 @@ export const AuthPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 gradient-mesh selection:bg-primary/30 relative overflow-hidden">
-      {/* Interactive Antigravity Particle Field Background */}
-      <div className="absolute inset-0 z-0 opacity-65 pointer-events-auto">
-        <Antigravity
-          colors={['#6366f1', '#38bdf8', '#818cf8', '#c084fc']}
-          count={1200}
-          magnetRadius={8}
-          ringRadius={6}
-          particleSize={0.85}
-          autoAnimate={true}
-        />
-      </div>
+    <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4 selection:bg-indigo-500/30 relative overflow-hidden">
+      {/* Ambient Radial Lighting */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[350px] bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-transparent blur-[120px] pointer-events-none rounded-full" />
 
       {/* Brand Header */}
-      <Link to="/" className="flex items-center gap-2.5 mb-8 group relative z-10">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary to-secondary p-0.5 shadow-md">
-          <div className="w-full h-full bg-[#080B18] rounded-[10px] flex items-center justify-center">
-            <BookOpen className="w-5 h-5 text-secondary" />
-          </div>
+      <Link to="/" className="flex items-center gap-3 mb-8 group relative z-10">
+        <div className="w-10 h-10 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center shadow-inner">
+          <BookOpen className="w-5 h-5 text-indigo-400" />
         </div>
         <div>
-          <span className="font-bold text-lg text-foreground tracking-tight">
-            Snap2Learn<span className="text-secondary ml-1">AI</span>
+          <span className="font-bold text-lg text-white tracking-tight">
+            Snap2Learn<span className="text-indigo-400 ml-1">AI</span>
           </span>
-          <p className="text-[10px] text-foreground-muted">CSE-AIML Study Companion</p>
+          <p className="text-[10px] text-neutral-400">CSE-AIML Study Companion</p>
         </div>
       </Link>
 
-      <div className="w-full max-w-md glass-card p-6 sm:p-8 border border-border relative z-10 shadow-2xl backdrop-blur-xl">
+      <div className="w-full max-w-md bg-[#0a0a0f] p-6 sm:p-8 rounded-2xl border border-white/[0.08] relative z-10 shadow-2xl">
         {/* Step Indicator Header */}
         <div className="mb-6 text-center">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary-light text-[11px] font-medium mb-2">
-            <ShieldCheck className="w-3.5 h-3.5 text-secondary" />
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.04] border border-white/[0.08] text-neutral-300 text-[11px] font-medium mb-2">
+            <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
             <span>Secure Email OTP Verification</span>
           </div>
-          <h2 className="text-xl font-bold text-foreground">
+          <h2 className="text-xl font-bold text-white">
             {step === 'email' ? 'Sign In or Register' : 'Check Your Inbox'}
           </h2>
-          <p className="text-xs text-foreground-muted mt-1 leading-relaxed">
+          <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
             {step === 'email'
               ? 'Enter your student email. We will send a secure 6-digit verification code directly to your inbox.'
               : `A one-time code was sent to ${email}. Valid for 10 minutes.`}
@@ -149,37 +138,37 @@ export const AuthPage: React.FC = () => {
         {step === 'email' ? (
           <form onSubmit={handleSendOtp} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-foreground-muted mb-1.5">
+              <label className="block text-xs font-medium text-neutral-400 mb-1.5">
                 Full Name (For New Students)
               </label>
               <div className="relative">
-                <User className="w-4 h-4 text-foreground-muted absolute left-3 top-1/2 -translate-y-1/2" />
+                <User className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   placeholder="e.g. Yashwanth Ch"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-surface border border-border text-foreground text-xs focus:outline-none focus:border-secondary"
+                  className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white text-xs focus:outline-none focus:border-white/20"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-foreground-muted mb-1.5">
-                Student Email Address <span className="text-secondary">*</span>
+              <label className="block text-xs font-medium text-neutral-400 mb-1.5">
+                Student Email Address <span className="text-indigo-400">*</span>
               </label>
               <div className="relative">
-                <Mail className="w-4 h-4 text-foreground-muted absolute left-3 top-1/2 -translate-y-1/2" />
+                <Mail className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="email"
                   required
                   placeholder="student@college.edu"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-surface border border-border text-foreground text-xs focus:outline-none focus:border-secondary"
+                  className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white text-xs focus:outline-none focus:border-white/20"
                 />
               </div>
-              <p className="text-[10px] text-foreground-muted mt-1">
+              <p className="text-[10px] text-neutral-500 mt-1">
                 New accounts are created automatically upon OTP verification.
               </p>
             </div>
@@ -187,7 +176,7 @@ export const AuthPage: React.FC = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3 rounded-xl bg-primary text-white text-xs font-semibold shadow-md glow-primary hover:bg-primary-hover transition-all flex items-center justify-center gap-2 mt-4 cursor-pointer disabled:opacity-50"
+              className="w-full py-3 rounded-full bg-white text-black hover:bg-neutral-200 text-xs font-semibold shadow-xl transition-all flex items-center justify-center gap-2 mt-4 cursor-pointer disabled:opacity-50 active:scale-98"
             >
               {isLoading ? (
                 <>
@@ -205,13 +194,13 @@ export const AuthPage: React.FC = () => {
             <div className="flex items-center justify-between pt-2">
               <Link
                 to="/reset-password"
-                className="text-[11px] text-secondary hover:underline cursor-pointer font-medium"
+                className="text-[11px] text-indigo-400 hover:text-indigo-300 cursor-pointer font-medium"
               >
                 Forgot Password?
               </Link>
               <Link
                 to="/reset-password"
-                className="text-[11px] text-foreground-muted hover:text-foreground cursor-pointer"
+                className="text-[11px] text-neutral-400 hover:text-white cursor-pointer"
               >
                 Reset via Email Link & OTP
               </Link>

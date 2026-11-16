@@ -61,6 +61,7 @@ class QuizSubmitResponse(BaseModel):
     correct_count: int
     score_percentage: float
     passed: bool
+    status: Literal["EXCELLENT", "GOOD", "REVIEW"] = "REVIEW"
     time_taken_seconds: int
     question_reviews: list[QuestionReview]
     weak_topics: list[str]

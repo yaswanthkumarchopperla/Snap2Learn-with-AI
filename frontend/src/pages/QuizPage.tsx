@@ -23,7 +23,7 @@ import { AutosaveIndicator } from '../components/AutosaveIndicator';
 import { useAutosave } from '../contexts/AutosaveContext';
 import { api } from '../services/api';
 import { useQuizTimer } from '../hooks/useQuizTimer';
-import { getQuizDurationSeconds, formatQuizTime } from '../config/quizConfig';
+import { getQuizDurationSeconds, formatQuizTime, getQuizPerformanceStatus } from '../config/quizConfig';
 import {
   QuizGenerateResponse,
   QuizSubmitResponse,
@@ -64,40 +64,9 @@ export const QuizPage: React.FC = () => {
   quizDataRef.current = quizData;
   const selectedAnswersRef = useRef<Record<string, number>>({});
   selectedAnswersRef.current = selectedAnswers;
+  const handleSubmitQuizRef = useRef<(isTimeout?: boolean) => Promise<void>>(() => Promise.resolve());
 
-  // Submit Quiz: calls backend /api/quiz/submit
-  const handleSubmitQuiz = useCallback(async (isTimeout: boolean = false) => {
-    const activeQuiz = quizDataRef.current;
-    if (!activeQuiz) return;
-    stopTimer();
-    setLoading(true);
-    setErrorMsg(null);
-    try {
-      const result = await api.submitQuiz({
-        quiz_id: activeQuiz.quiz_id,
-        answers: selectedAnswersRef.current,
-        time_taken_seconds: timeTakenSeconds,
-      });
-      setSubmitResult(result);
-      setQuizState('submitted');
-
-      // Trigger confetti celebration if passed!
-      if (result.passed) {
-        confetti({
-          particleCount: 90,
-          spread: 70,
-          origin: { y: 0.6 },
-          colors: ['#7559FF', '#22D3EE', '#A855F7'],
-        });
-      }
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to submit quiz. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Countdown Timer based on absolute end timestamp
+  // Countdown Timer based on absolute start/end timestamps
   const {
     remainingSeconds,
     totalDurationSeconds,
@@ -111,14 +80,78 @@ export const QuizPage: React.FC = () => {
     resumeTimer,
     stopTimer,
     resetTimer,
+    getTimeTakenSeconds,
   } = useQuizTimer({
     onTimeExpired: () => {
-      handleSubmitQuiz(true);
+      handleSubmitQuizRef.current(true);
     },
   });
 
-  // Check for active incomplete quiz on mount
+  // Submit Quiz: calls backend /api/quiz/submit with timestamp-calculated time
+  const handleSubmitQuiz = useCallback(async (isTimeout: boolean = false) => {
+    const activeQuiz = quizDataRef.current;
+    if (!activeQuiz) return;
+
+    // Calculate actual elapsed seconds from timestamps
+    const calculatedDuration = stopTimer();
+    const finalDurationSeconds = isTimeout && totalDurationSeconds > 0
+      ? totalDurationSeconds
+      : Math.max(0, calculatedDuration);
+
+    setLoading(true);
+    setErrorMsg(null);
+    try {
+      const result = await api.submitQuiz({
+        quiz_id: activeQuiz.quiz_id,
+        answers: selectedAnswersRef.current,
+        time_taken_seconds: finalDurationSeconds,
+      });
+
+      // Ensure time_taken_seconds in response is populated accurately
+      if (result.time_taken_seconds === undefined || (result.time_taken_seconds === 0 && finalDurationSeconds > 0)) {
+        result.time_taken_seconds = finalDurationSeconds;
+      }
+
+      setSubmitResult(result);
+      setQuizState('submitted');
+
+      // Persist latest result to sessionStorage so reloads or reopening preserves it
+      try {
+        sessionStorage.setItem('snap2learn_latest_quiz_result', JSON.stringify(result));
+      } catch {}
+
+      // Trigger confetti celebration if excellent or good!
+      if (result.score_percentage >= 60) {
+        confetti({
+          particleCount: 90,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#7559FF', '#22D3EE', '#A855F7'],
+        });
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to submit quiz. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [stopTimer, totalDurationSeconds]);
+
+  handleSubmitQuizRef.current = handleSubmitQuiz;
+
+  // Check for persisted result or active incomplete quiz on mount
   useEffect(() => {
+    const savedResultStr = sessionStorage.getItem('snap2learn_latest_quiz_result');
+    if (savedResultStr) {
+      try {
+        const saved = JSON.parse(savedResultStr);
+        if (saved && saved.quiz_id && saved.total_questions) {
+          setSubmitResult(saved);
+          setQuizState('submitted');
+          return;
+        }
+      } catch {}
+    }
+
     api.getActiveQuiz().then((res) => {
       if (res.has_active_quiz && res.questions && res.questions.length > 0) {
         setActiveQuizRestored(res);
@@ -155,8 +188,10 @@ export const QuizPage: React.FC = () => {
       if (remaining <= 0) {
         handleSubmitQuiz(true);
       } else {
-        startTimer(duration, remaining);
+        startTimer(duration, remaining, elapsed);
       }
+    } else {
+      startTimer(0, 0, elapsed);
     }
   };
 
@@ -164,7 +199,7 @@ export const QuizPage: React.FC = () => {
   const handleStartQuiz = async () => {
     setLoading(true);
     setErrorMsg(null);
-    resetTimer(); // 5. Keep quiz timer completely stopped during question generation
+    resetTimer(); // Keep quiz timer completely stopped during question generation
     try {
       const data = await api.generateQuiz({
         study_text: studyText,
@@ -173,19 +208,20 @@ export const QuizPage: React.FC = () => {
         num_questions: numQuestions,
         difficulty,
       });
-      // 6 & 7. Wait until all questions are successfully generated and rendered
+      // Wait until all questions are successfully generated and rendered
       setQuizData(data);
       setCurrentIndex(0);
       setSelectedAnswers({});
       setQuizState('taking');
 
-      // 8. Start the countdown timer ONLY when the first question is visible and the quiz is ready
+      // Start the timer ONLY when the first question is visible and the quiz is ready
       const allocatedDuration = getQuizDurationSeconds(numQuestions, difficulty);
       if (timedMode) {
-        startTimer(allocatedDuration);
+        startTimer(allocatedDuration, undefined, 0);
+      } else {
+        startTimer(0, 0, 0);
       }
     } catch (err: any) {
-      // 4. If generation fails: stop loading state, do not start timer, show error and retry
       setErrorMsg(err.message || 'Failed to generate quiz. Please try again.');
     } finally {
       setLoading(false);
@@ -201,12 +237,13 @@ export const QuizPage: React.FC = () => {
     setSelectedAnswers(newAnswers);
 
     if (quizData) {
+      const currentElapsed = getTimeTakenSeconds();
       triggerAutosave(async () => {
         return await api.saveQuizProgress({
           quiz_id: quizData.quiz_id,
           answers: newAnswers,
           current_question_index: currentIndex,
-          time_taken_seconds: timeTakenSeconds,
+          time_taken_seconds: currentElapsed,
         });
       }, {
         type: 'quiz_progress',
@@ -216,7 +253,7 @@ export const QuizPage: React.FC = () => {
           quiz_id: quizData.quiz_id,
           answers: newAnswers,
           current_question_index: currentIndex,
-          time_taken_seconds: timeTakenSeconds,
+          time_taken_seconds: currentElapsed,
         }
       });
     }
@@ -225,11 +262,12 @@ export const QuizPage: React.FC = () => {
   const goToQuestion = (targetIdx: number) => {
     setCurrentIndex(targetIdx);
     if (quizData) {
+      const currentElapsed = getTimeTakenSeconds();
       api.saveQuizProgress({
         quiz_id: quizData.quiz_id,
         answers: selectedAnswers,
         current_question_index: targetIdx,
-        time_taken_seconds: timeTakenSeconds,
+        time_taken_seconds: currentElapsed,
       }).catch(() => {});
     }
   };
@@ -349,17 +387,17 @@ export const QuizPage: React.FC = () => {
 
         {/* ----------------- STATE 1: CONFIGURATION ----------------- */}
         {quizState === 'config' && (
-          <div className="glass-card p-6 sm:p-8 space-y-6">
-            <div>
-              <h3 className="text-lg font-bold text-foreground mb-1">Configure Your Assessment</h3>
-              <p className="text-xs text-foreground-muted">
-                Questions will be generated dynamically from your confirmed study notes. The quiz timer starts only after questions are ready.
+          <div className="bg-[#0c0c12] border border-white/[0.08] rounded-2xl p-6 sm:p-8 space-y-6">
+            <div className="space-y-1">
+              <h3 className="text-lg font-bold text-white">Configure Your Assessment</h3>
+              <p className="text-xs text-neutral-400">
+                Questions will be generated dynamically from your study notes. The quiz timer starts only after questions are ready.
               </p>
             </div>
 
             {/* Questions count */}
             <div>
-              <label className="block text-xs font-medium text-foreground-muted mb-2">
+              <label className="block text-xs font-medium text-neutral-400 mb-2">
                 Number of Questions
               </label>
               <div className="grid grid-cols-3 gap-3">
@@ -368,10 +406,10 @@ export const QuizPage: React.FC = () => {
                     key={num}
                     type="button"
                     onClick={() => setNumQuestions(num)}
-                    className={`py-3 rounded-xl border text-xs font-bold transition-all ${
+                    className={`py-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
                       numQuestions === num
-                        ? 'bg-primary text-white border-primary shadow-md glow-primary'
-                        : 'bg-surface border-border text-foreground-muted hover:text-foreground'
+                        ? 'bg-white text-black border-white shadow-md'
+                        : 'bg-white/[0.04] border-white/[0.08] text-neutral-400 hover:text-white hover:border-white/20'
                     }`}
                   >
                     {num} Questions
@@ -382,7 +420,7 @@ export const QuizPage: React.FC = () => {
 
             {/* Difficulty selection */}
             <div>
-              <label className="block text-xs font-medium text-foreground-muted mb-2">
+              <label className="block text-xs font-medium text-neutral-400 mb-2">
                 Difficulty Level
               </label>
               <div className="grid grid-cols-3 gap-3">
@@ -397,27 +435,27 @@ export const QuizPage: React.FC = () => {
                     key={lvl.id}
                     type="button"
                     onClick={() => setDifficulty(lvl.id)}
-                    className={`p-3 rounded-xl border text-left transition-all ${
+                    className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
                       difficulty === lvl.id
-                        ? 'bg-secondary/15 border-secondary text-secondary shadow-md'
-                        : 'bg-surface border-border text-foreground-muted hover:text-foreground'
+                        ? 'bg-indigo-500/10 border-indigo-400/40 text-white shadow-md'
+                        : 'bg-white/[0.04] border-white/[0.08] text-neutral-400 hover:text-white hover:border-white/20'
                     }`}
                   >
                     <p className="font-bold text-xs">{lvl.label}</p>
-                    <p className="text-[10px] opacity-80 mt-0.5">{lvl.desc}</p>
+                    <p className="text-[10px] text-neutral-400 mt-0.5">{lvl.desc}</p>
                   </button>
                 ))}
               </div>
             </div>
 
             {/* Timed Mode Toggle */}
-            <div className="flex items-center justify-between p-4 rounded-xl bg-surface border border-border">
+            <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.03] border border-white/[0.08]">
               <div className="flex items-center gap-3">
-                <Clock className="w-5 h-5 text-secondary" />
+                <Clock className="w-5 h-5 text-indigo-400" />
                 <div>
-                  <p className="text-xs font-bold text-foreground">Timed Exam Mode</p>
-                  <p className="text-[11px] text-foreground-muted">
-                    Allocated duration: <strong className="text-secondary font-mono">{formatQuizTime(getQuizDurationSeconds(numQuestions, difficulty))}</strong> ({Math.round(getQuizDurationSeconds(numQuestions, difficulty)/60)} minutes)
+                  <p className="text-xs font-bold text-white">Timed Exam Mode</p>
+                  <p className="text-[11px] text-neutral-400">
+                    Allocated duration: <strong className="text-indigo-300 font-mono">{formatQuizTime(getQuizDurationSeconds(numQuestions, difficulty))}</strong> ({Math.round(getQuizDurationSeconds(numQuestions, difficulty)/60)} minutes)
                   </p>
                 </div>
               </div>
@@ -425,21 +463,21 @@ export const QuizPage: React.FC = () => {
                 type="checkbox"
                 checked={timedMode}
                 onChange={(e) => setTimedMode(e.target.checked)}
-                className="w-4 h-4 accent-primary"
+                className="w-4 h-4 accent-indigo-500"
               />
             </div>
 
             {/* Dedicated Loading Card during question generation */}
             {loading ? (
-              <div className="p-8 rounded-2xl bg-surface border border-secondary/30 text-center flex flex-col items-center justify-center gap-3 animate-in fade-in">
-                <RefreshCw className="w-8 h-8 text-secondary animate-spin" />
-                <h4 className="text-sm sm:text-base font-bold text-foreground">
+              <div className="p-8 rounded-2xl bg-white/[0.02] border border-indigo-500/30 text-center flex flex-col items-center justify-center gap-3 animate-in fade-in">
+                <RefreshCw className="w-8 h-8 text-indigo-400 animate-spin" />
+                <h4 className="text-sm sm:text-base font-bold text-white">
                   Preparing your quiz...
                 </h4>
-                <p className="text-xs text-foreground-muted max-w-md">
+                <p className="text-xs text-neutral-400 max-w-md">
                   Generating {numQuestions} fresh questions grounded in your notes at {difficulty} difficulty with KaTeX formatting and deterministic scoring.
                 </p>
-                <div className="px-3 py-1 rounded-full bg-secondary/10 border border-secondary/20 text-[11px] text-secondary font-mono">
+                <div className="px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-[11px] text-indigo-300 font-mono">
                   ⏱ Quiz timer is stopped and will start only when Question 1 appears
                 </div>
               </div>
@@ -447,7 +485,7 @@ export const QuizPage: React.FC = () => {
               <button
                 onClick={handleStartQuiz}
                 disabled={loading}
-                className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-primary to-secondary text-white font-semibold text-xs shadow-lg glow-primary hover:opacity-95 disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-3.5 rounded-full bg-white text-black hover:bg-neutral-200 font-semibold text-xs shadow-xl disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
               >
                 <Play className="w-4 h-4" />
                 <span>Start Practice Quiz ({formatQuizTime(getQuizDurationSeconds(numQuestions, difficulty))})</span>
@@ -596,150 +634,165 @@ export const QuizPage: React.FC = () => {
         )}
 
         {/* ----------------- STATE 3: SUBMISSION RESULTS & DETAILED REVIEW ----------------- */}
-        {quizState === 'submitted' && submitResult && (
-          <div className="space-y-6">
-            {/* Score Summary Banner */}
-            <div
-              className={`glass-card p-6 sm:p-8 text-center border-2 ${
-                submitResult.passed ? 'border-emerald-500/50' : 'border-amber-500/50'
-              }`}
-            >
-              <div className="inline-flex p-3 rounded-full bg-surface-elevated mb-3">
-                {submitResult.passed ? (
-                  <Award className="w-8 h-8 text-emerald-400" />
-                ) : (
-                  <AlertTriangle className="w-8 h-8 text-amber-400" />
-                )}
-              </div>
-
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-foreground mb-1">
-                {submitResult.passed ? 'Congratulations! You Passed!' : 'Good Effort! Keep Practicing!'}
-              </h2>
-              <p className="text-xs text-foreground-muted mb-6">
-                {submitResult.revision_recommendation}
-              </p>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-lg mx-auto mb-6">
-                <div className="p-3 rounded-xl bg-surface border border-border">
-                  <span className="text-[10px] text-foreground-muted block">Score</span>
-                  <span className="text-xl font-extrabold text-foreground">
-                    {submitResult.correct_count} / {submitResult.total_questions}
-                  </span>
+        {quizState === 'submitted' && submitResult && (() => {
+          const perfStatus = getQuizPerformanceStatus(submitResult.score_percentage);
+          return (
+            <div className="space-y-6">
+              {/* Score Summary Banner */}
+              <div
+                className={`glass-card p-6 sm:p-8 text-center border-2 ${
+                  perfStatus.status === 'EXCELLENT'
+                    ? 'border-emerald-500/50'
+                    : perfStatus.status === 'GOOD'
+                    ? 'border-indigo-500/50'
+                    : 'border-amber-500/50'
+                }`}
+              >
+                <div className="inline-flex p-3 rounded-full bg-surface-elevated mb-3">
+                  {perfStatus.status === 'EXCELLENT' ? (
+                    <Award className="w-8 h-8 text-emerald-400" />
+                  ) : perfStatus.status === 'GOOD' ? (
+                    <CheckCircle2 className="w-8 h-8 text-indigo-400" />
+                  ) : (
+                    <AlertTriangle className="w-8 h-8 text-amber-400" />
+                  )}
                 </div>
-                <div className="p-3 rounded-xl bg-surface border border-border">
-                  <span className="text-[10px] text-foreground-muted block">Accuracy</span>
-                  <span className="text-xl font-extrabold text-secondary">
-                    {submitResult.score_percentage}%
-                  </span>
+
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-foreground mb-1">
+                  {perfStatus.status === 'EXCELLENT'
+                    ? 'Outstanding! Mastery Achieved! 🎉'
+                    : perfStatus.status === 'GOOD'
+                    ? 'Great Job! Good Understanding! 👍'
+                    : 'Keep Practicing! Review Required 📚'}
+                </h2>
+                <p className="text-xs text-foreground-muted mb-6">
+                  {submitResult.revision_recommendation}
+                </p>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-lg mx-auto mb-6">
+                  <div className="p-3 rounded-xl bg-surface border border-border">
+                    <span className="text-[10px] text-foreground-muted block">Score</span>
+                    <span className="text-xl font-extrabold text-foreground">
+                      {submitResult.correct_count} / {submitResult.total_questions}
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-surface border border-border">
+                    <span className="text-[10px] text-foreground-muted block">Accuracy</span>
+                    <span className="text-xl font-extrabold text-secondary">
+                      {submitResult.score_percentage}%
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-surface border border-border">
+                    <span className="text-[10px] text-foreground-muted block">Status</span>
+                    <span
+                      className={`text-xl font-extrabold ${perfStatus.textColor}`}
+                    >
+                      {perfStatus.label}
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-surface border border-border">
+                    <span className="text-[10px] text-foreground-muted block">Time Taken</span>
+                    <span className="text-xl font-extrabold text-foreground">
+                      {formatQuizTime(submitResult.time_taken_seconds)}
+                    </span>
+                  </div>
                 </div>
-                <div className="p-3 rounded-xl bg-surface border border-border">
-                  <span className="text-[10px] text-foreground-muted block">Status</span>
-                  <span
-                    className={`text-xl font-extrabold ${
-                      submitResult.passed ? 'text-emerald-400' : 'text-amber-400'
-                    }`}
+
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <button
+                    onClick={() => {
+                      sessionStorage.removeItem('snap2learn_latest_quiz_result');
+                      setSubmitResult(null);
+                      setQuizState('config');
+                    }}
+                    className="px-5 py-2.5 rounded-xl bg-surface border border-border hover:bg-surface-hover text-foreground text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
                   >
-                    {submitResult.passed ? 'PASS' : 'REVIEW'}
-                  </span>
-                </div>
-                <div className="p-3 rounded-xl bg-surface border border-border">
-                  <span className="text-[10px] text-foreground-muted block">Time Taken</span>
-                  <span className="text-xl font-extrabold text-foreground">
-                    {formatQuizTime(submitResult.time_taken_seconds)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                <button
-                  onClick={() => setQuizState('config')}
-                  className="px-5 py-2.5 rounded-xl bg-surface border border-border hover:bg-surface-hover text-foreground text-xs font-semibold transition-colors flex items-center gap-1.5"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  <span>Configure New Quiz</span>
-                </button>
-                <button
-                  onClick={() => navigate('/analytics')}
-                  className="px-5 py-2.5 rounded-xl bg-primary text-white text-xs font-semibold shadow-md glow-primary hover:bg-primary-hover transition-all flex items-center gap-1.5"
-                >
-                  <span>View Progress Analytics</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* Question by Question Review */}
-            <div className="space-y-4">
-              <h3 className="text-base font-bold text-foreground">
-                Detailed Answer Key & Mistake Analysis
-              </h3>
-
-              {submitResult.question_reviews.map((rev, idx) => {
-                const letters = ['A', 'B', 'C', 'D'];
-                return (
-                  <div
-                    key={rev.id}
-                    className={`glass-card p-5 border-l-4 ${
-                      rev.is_correct ? 'border-l-emerald-500' : 'border-l-red-500'
-                    }`}
+                    <RotateCcw className="w-4 h-4" />
+                    <span>Configure New Quiz</span>
+                  </button>
+                  <button
+                    onClick={() => navigate('/analytics')}
+                    className="px-5 py-2.5 rounded-xl bg-primary text-white text-xs font-semibold shadow-md glow-primary hover:bg-primary-hover transition-all flex items-center gap-1.5 cursor-pointer"
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-xs text-foreground">
-                          Q{idx + 1}. {rev.topic_tag}
-                        </span>
-                        {rev.is_correct ? (
-                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/10 text-emerald-400 flex items-center gap-1">
-                            <CheckCircle2 className="w-3 h-3" /> Correct (+1)
+                    <span>View Progress Analytics</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Question by Question Review */}
+              <div className="space-y-4">
+                <h3 className="text-base font-bold text-foreground">
+                  Detailed Answer Key & Mistake Analysis
+                </h3>
+
+                {submitResult.question_reviews.map((rev, idx) => {
+                  const letters = ['A', 'B', 'C', 'D'];
+                  return (
+                    <div
+                      key={rev.id}
+                      className={`glass-card p-5 border-l-4 ${
+                        rev.is_correct ? 'border-l-emerald-500' : 'border-l-red-500'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-xs text-foreground">
+                            Q{idx + 1}. {rev.topic_tag}
                           </span>
-                        ) : (
-                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-red-500/10 text-red-400 flex items-center gap-1">
-                            <XCircle className="w-3 h-3" /> Incorrect (0)
-                          </span>
-                        )}
+                          {rev.is_correct ? (
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/10 text-emerald-400 flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3" /> Correct (+1)
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-red-500/10 text-red-400 flex items-center gap-1">
+                              <XCircle className="w-3 h-3" /> Incorrect (0)
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <p className="text-xs sm:text-sm font-medium text-foreground mb-3">
+                        <MathRenderer content={rev.question} />
+                      </p>
+
+                      {/* Choices Review */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+                        {rev.options.map((opt, oIdx) => {
+                          const isSelected = rev.selected_index === oIdx;
+                          const isCorrect = rev.correct_index === oIdx;
+                          let borderStyle = 'border-border bg-surface text-foreground-muted';
+                          if (isCorrect) {
+                            borderStyle = 'border-emerald-500/60 bg-emerald-500/10 text-emerald-300 font-semibold';
+                          } else if (isSelected && !isCorrect) {
+                            borderStyle = 'border-red-500/60 bg-red-500/10 text-red-300 line-through';
+                          }
+                          return (
+                            <div
+                              key={oIdx}
+                              className={`p-2.5 rounded-lg border text-xs flex items-center gap-2 ${borderStyle}`}
+                            >
+                              <span className="font-bold shrink-0">{letters[oIdx]}.</span>
+                              <span className="flex-1">
+                                <MathRenderer content={opt} />
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Explanation */}
+                      <div className="p-3 rounded-lg bg-surface-elevated border border-border text-xs text-foreground-muted leading-relaxed">
+                        <span className="font-bold text-secondary block mb-0.5">Why this is correct:</span>
+                        <MathRenderer content={rev.explanation} />
                       </div>
                     </div>
-
-                    <p className="text-xs sm:text-sm font-medium text-foreground mb-3">
-                      <MathRenderer content={rev.question} />
-                    </p>
-
-                    {/* Choices Review */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
-                      {rev.options.map((opt, oIdx) => {
-                        const isSelected = rev.selected_index === oIdx;
-                        const isCorrect = rev.correct_index === oIdx;
-                        let borderStyle = 'border-border bg-surface text-foreground-muted';
-                        if (isCorrect) {
-                          borderStyle = 'border-emerald-500/60 bg-emerald-500/10 text-emerald-300 font-semibold';
-                        } else if (isSelected && !isCorrect) {
-                          borderStyle = 'border-red-500/60 bg-red-500/10 text-red-300 line-through';
-                        }
-                        return (
-                          <div
-                            key={oIdx}
-                            className={`p-2.5 rounded-lg border text-xs flex items-center gap-2 ${borderStyle}`}
-                          >
-                            <span className="font-bold shrink-0">{letters[oIdx]}.</span>
-                            <span className="flex-1">
-                              <MathRenderer content={opt} />
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Explanation */}
-                    <div className="p-3 rounded-lg bg-surface-elevated border border-border text-xs text-foreground-muted leading-relaxed">
-                      <span className="font-bold text-secondary block mb-0.5">Why this is correct:</span>
-                      <MathRenderer content={rev.explanation} />
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
     </SidebarLayout>
   );

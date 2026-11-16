@@ -53,23 +53,25 @@ export const AnalyticsPage: React.FC = () => {
 
   return (
     <SidebarLayout>
-      <div className="p-3.5 sm:p-6 lg:p-8 max-w-6xl w-full mx-auto space-y-5 sm:space-y-6 pb-20 lg:pb-8 min-w-0">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-6xl w-full mx-auto space-y-6 pb-20 lg:pb-8 min-w-0">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
-          <div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
-              <BarChart3 className="w-6 h-6 text-secondary" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.08]">
+          <div className="space-y-1">
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center">
+                <BarChart3 className="w-4 h-4 text-indigo-400" />
+              </div>
               <span>Progress Analytics</span>
             </h1>
-            <p className="text-xs sm:text-sm text-foreground-muted mt-1">
-              Real evaluation metrics calculated deterministically from your completed quizzes.
+            <p className="text-xs sm:text-sm text-neutral-400">
+              Evaluation metrics calculated deterministically from your completed quizzes.
             </p>
           </div>
 
           <button
             type="button"
             onClick={() => navigate('/quiz')}
-            className="self-stretch sm:self-auto px-4 py-2.5 rounded-xl bg-primary text-white text-xs font-semibold shadow-md glow-primary hover:bg-primary-hover transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            className="self-stretch sm:self-auto px-4 py-2 rounded-full bg-white text-black hover:bg-neutral-200 text-xs font-semibold shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
           >
             <Award className="w-4 h-4" />
             <span>Take Practice Quiz</span>
@@ -77,25 +79,25 @@ export const AnalyticsPage: React.FC = () => {
         </div>
 
         {loading ? (
-          <div className="glass-card p-12 text-center flex flex-col items-center justify-center gap-2">
-            <RefreshCw className="w-8 h-8 text-secondary animate-spin" />
-            <span className="text-xs text-foreground-muted">Aggregating progress telemetry...</span>
+          <div className="bg-[#0c0c12] border border-white/[0.08] rounded-2xl p-12 text-center flex flex-col items-center justify-center gap-2">
+            <RefreshCw className="w-8 h-8 text-indigo-400 animate-spin" />
+            <span className="text-xs text-neutral-400">Aggregating progress telemetry...</span>
           </div>
         ) : (
           <div className="space-y-6 min-w-0">
             {/* Overview KPI Cards: 1 col mobile, 2 col tablet, 4 col desktop */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              <div className="glass-card p-4 min-w-0 overflow-hidden">
-                <span className="text-xs font-medium text-foreground-muted block mb-1 truncate">Average Accuracy</span>
-                <p className="text-2xl sm:text-3xl font-extrabold text-secondary truncate">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+              <div className="bg-[#0c0c12] border border-white/[0.08] hover:border-white/[0.16] rounded-2xl p-4 min-w-0 overflow-hidden transition-all">
+                <span className="text-xs font-medium text-neutral-400 block mb-1 truncate">Average Accuracy</span>
+                <p className="text-2xl sm:text-3xl font-extrabold text-white truncate">
                   {analytics?.average_accuracy}%
                 </p>
-                <span className="text-[10px] text-foreground-muted mt-1 block truncate">Semester benchmark: 60%</span>
+                <span className="text-[10px] text-neutral-500 mt-1 block truncate">Semester benchmark: 60%</span>
               </div>
 
-              <div className="glass-card p-4 min-w-0 overflow-hidden">
-                <span className="text-xs font-medium text-foreground-muted block mb-1 truncate">Completed Quizzes</span>
-                <p className="text-2xl sm:text-3xl font-extrabold text-foreground truncate">
+              <div className="bg-[#0c0c12] border border-white/[0.08] hover:border-white/[0.16] rounded-2xl p-4 min-w-0 overflow-hidden transition-all">
+                <span className="text-xs font-medium text-neutral-400 block mb-1 truncate">Completed Quizzes</span>
+                <p className="text-2xl sm:text-3xl font-extrabold text-white truncate">
                   {analytics?.quizzes_completed}
                 </p>
                 <span className="text-[10px] text-foreground-muted mt-1 block truncate">Full evaluations</span>

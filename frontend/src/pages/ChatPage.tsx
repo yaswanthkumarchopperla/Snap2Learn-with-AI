@@ -148,22 +148,20 @@ export const ChatPage: React.FC = () => {
     <SidebarLayout>
       <div className="flex flex-col h-[calc(100vh-3.5rem)] lg:h-screen bg-background relative overflow-hidden">
         {/* Tutor Topbar */}
-        <div className="px-6 py-3.5 border-b border-border bg-surface flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <div className="px-6 py-3.5 border-b border-white/[0.08] bg-[#060609] flex flex-wrap items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-primary to-secondary p-0.5 shadow-sm">
-              <div className="w-full h-full bg-[#080B18] rounded-[10px] flex items-center justify-center">
-                <Bot className="w-4 h-4 text-secondary" />
-              </div>
+            <div className="w-8 h-8 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center shadow-sm">
+              <Bot className="w-4 h-4 text-indigo-400" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-sm text-foreground">AI Tutor</span>
-                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-secondary/10 text-secondary border border-secondary/20">
+                <span className="font-bold text-sm text-white">AI Tutor</span>
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-mono bg-white/[0.04] text-neutral-300 border border-white/[0.08]">
                   Grounded Context
                 </span>
                 <AutosaveIndicator compact={true} />
               </div>
-              <p className="text-[10px] text-foreground-muted truncate max-w-xs sm:max-w-md">
+              <p className="text-[10px] text-neutral-400 truncate max-w-xs sm:max-w-md">
                 Topic: {topic} ({subject})
               </p>
             </div>
@@ -175,23 +173,23 @@ export const ChatPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowHistoryDrawer(!showHistoryDrawer)}
-                className="px-2.5 py-1.5 rounded-xl bg-surface-elevated hover:bg-surface-hover text-foreground text-xs font-semibold border border-border transition-colors flex items-center gap-1.5 cursor-pointer"
+                className="px-3 py-1.5 rounded-full bg-white/[0.04] hover:bg-white/[0.08] text-neutral-300 hover:text-white text-xs font-medium border border-white/[0.08] transition-colors flex items-center gap-1.5 cursor-pointer"
               >
-                <History className="w-3.5 h-3.5 text-secondary" />
+                <History className="w-3.5 h-3.5 text-indigo-400" />
                 <span>History ({sessionsList.length})</span>
               </button>
             )}
 
             {/* Language switch */}
-            <div className="flex rounded-xl bg-surface-elevated p-1 border border-border text-[11px]">
+            <div className="flex rounded-full bg-white/[0.04] p-1 border border-white/[0.08] text-[11px]">
               {(['english', 'bilingual', 'telugu'] as Language[]).map((l) => (
                 <button
                   key={l}
                   onClick={() => setLanguage(l)}
-                  className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                  className={`px-3 py-1 rounded-full font-medium transition-all cursor-pointer ${
                     language === l
-                      ? 'bg-primary text-white font-semibold shadow-xs'
-                      : 'text-foreground-muted hover:text-foreground'
+                      ? 'bg-white text-black font-semibold shadow-xs'
+                      : 'text-neutral-400 hover:text-white'
                   }`}
                 >
                   {l === 'english' ? 'English' : l === 'bilingual' ? 'Bilingual' : 'తెలుగు'}
@@ -201,7 +199,7 @@ export const ChatPage: React.FC = () => {
 
             <button
               onClick={handleClearChat}
-              className="p-2 rounded-xl bg-surface-elevated hover:bg-surface-hover text-foreground-muted hover:text-foreground border border-border transition-colors cursor-pointer"
+              className="p-2 rounded-full bg-white/[0.04] hover:bg-white/[0.08] text-neutral-400 hover:text-white border border-white/[0.08] transition-colors cursor-pointer"
               title="Start fresh conversation"
             >
               <Trash2 className="w-4 h-4" />
@@ -323,7 +321,7 @@ export const ChatPage: React.FC = () => {
         )}
 
         {/* Input Bar */}
-        <div className="p-4 border-t border-border bg-surface shrink-0">
+        <div className="p-4 border-t border-white/[0.08] bg-[#060609] shrink-0">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -336,12 +334,12 @@ export const ChatPage: React.FC = () => {
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               placeholder={`Ask any doubt on ${topic}...`}
-              className="flex-1 px-4 py-3 rounded-xl bg-surface-elevated border border-border text-foreground text-xs sm:text-sm focus:outline-none focus:border-secondary transition-colors"
+              className="flex-1 px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white text-xs sm:text-sm focus:outline-none focus:border-white/20 transition-colors"
             />
             <button
               type="submit"
               disabled={!inputMessage.trim() || loading}
-              className="px-4 py-3 rounded-xl bg-gradient-to-r from-primary to-secondary text-white text-xs font-semibold shadow-md glow-primary hover:opacity-95 disabled:opacity-40 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+              className="px-5 py-3 rounded-xl bg-white text-black hover:bg-neutral-200 text-xs font-semibold shadow-md disabled:opacity-40 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
             >
               <Send className="w-4 h-4" />
               <span className="hidden sm:inline">Send</span>

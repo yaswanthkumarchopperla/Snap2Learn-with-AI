@@ -120,6 +120,7 @@ export interface QuizSubmitResponse {
   correct_count: number;
   score_percentage: number;
   passed: boolean;
+  status?: 'EXCELLENT' | 'GOOD' | 'REVIEW';
   time_taken_seconds: number;
   question_reviews: QuestionReview[];
   weak_topics: string[];

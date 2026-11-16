@@ -91,41 +91,26 @@ export const ResetPasswordPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
-      {/* Interactive Antigravity Particle Field Background */}
-      <div className="absolute inset-0 z-0 opacity-65 pointer-events-auto">
-        <Antigravity
-          colors={['#6366f1', '#38bdf8', '#c084fc', '#818cf8']}
-          count={1200}
-          magnetRadius={8}
-          ringRadius={6}
-          particleSize={0.85}
-          autoAnimate={true}
-        />
-      </div>
-
+    <div className="min-h-screen bg-black flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
       {/* Background glow accents */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-sky-600/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none" />
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         <div className="flex justify-center">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 to-sky-500 p-0.5 shadow-xl shadow-indigo-500/20">
-            <div className="w-full h-full bg-slate-900 rounded-2xl flex items-center justify-center">
-              <KeyRound className="w-7 h-7 text-sky-400" />
-            </div>
+          <div className="w-12 h-12 rounded-2xl bg-white/[0.06] border border-white/10 flex items-center justify-center shadow-lg">
+            <KeyRound className="w-6 h-6 text-indigo-400" />
           </div>
         </div>
-        <h2 className="mt-5 text-center text-3xl font-extrabold text-white tracking-tight">
+        <h2 className="mt-5 text-center text-2xl font-extrabold text-white tracking-tight">
           Reset Password
         </h2>
-        <p className="mt-2 text-center text-sm text-slate-400">
+        <p className="mt-1 text-center text-xs text-neutral-400">
           Snap2Learn AI • Academic Study Suite
         </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
-        <div className="bg-slate-900/90 backdrop-blur-xl py-8 px-6 sm:px-10 border border-slate-800 rounded-2xl shadow-2xl">
+        <div className="bg-[#0a0a0f] py-8 px-6 sm:px-10 border border-white/[0.08] rounded-2xl shadow-2xl">
           {error && (
             <div className="mb-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />

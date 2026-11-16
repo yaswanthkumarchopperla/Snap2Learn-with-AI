@@ -240,6 +240,17 @@ def submit_quiz(
     score_pct = round((correct_count / total_questions) * 100, 1) if total_questions > 0 else 0.0
     passed = score_pct >= 60.0
 
+    # Dynamic performance status based on accuracy:
+    # 80% to 100%: EXCELLENT
+    # 60% to 79%: GOOD
+    # Below 60%: REVIEW
+    if score_pct >= 80.0:
+        perf_status = "EXCELLENT"
+    elif score_pct >= 60.0:
+        perf_status = "GOOD"
+    else:
+        perf_status = "REVIEW"
+
     # Revision recommendations
     if not passed and weak_topics:
         revision_rec = f"Focus on understanding '{weak_topics[0]}' before retaking this quiz."
@@ -260,6 +271,7 @@ def submit_quiz(
         "correct_count": correct_count,
         "score_percentage": score_pct,
         "passed": passed,
+        "status": perf_status,
         "time_taken_seconds": request.time_taken_seconds,
         "weak_topics": weak_topics,
         "timestamp": datetime.now(timezone.utc).isoformat()
@@ -286,6 +298,7 @@ def submit_quiz(
         correct_count=correct_count,
         score_percentage=score_pct,
         passed=passed,
+        status=perf_status,
         time_taken_seconds=request.time_taken_seconds,
         question_reviews=question_reviews,
         weak_topics=weak_topics,

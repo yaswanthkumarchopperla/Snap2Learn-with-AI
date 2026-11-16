@@ -148,33 +148,33 @@ export const ExplainPage: React.FC = () => {
     <SidebarLayout>
       <div className="p-4 sm:p-6 lg:p-8 max-w-6xl w-full mx-auto space-y-6">
         {/* Top Header with Quick Actions */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-border">
-          <div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.08]">
+          <div className="space-y-1">
             <div className="flex items-center gap-2 mb-1">
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/20 text-primary border border-primary/30">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-white/[0.06] text-indigo-300 border border-white/[0.1]">
                 {initialSubject}
               </span>
-              <span className="text-xs text-foreground-muted">{initialTopic}</span>
+              <span className="text-xs text-neutral-400">{initialTopic}</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
               AI Explanation Engine
             </h1>
           </div>
 
-          <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          <div className="flex items-center gap-2.5 self-start sm:self-auto flex-wrap">
             <AutosaveIndicator compact={false} />
             <button
               onClick={handleCopyFullNotes}
-              className="px-3 py-2 rounded-xl border border-border bg-surface hover:bg-surface-hover text-foreground text-xs font-semibold transition-all flex items-center gap-1.5"
+              className="px-3.5 py-2 rounded-full border border-white/[0.1] bg-white/[0.05] hover:bg-white/[0.1] text-white text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer"
             >
               {copiedFullNotes ? (
                 <>
                   <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-emerald-400">Copied!</span>
+                  <span className="text-emerald-400 font-medium">Copied!</span>
                 </>
               ) : (
                 <>
-                  <Copy className="w-3.5 h-3.5 text-secondary" />
+                  <Copy className="w-3.5 h-3.5 text-indigo-400" />
                   <span>Copy Notes</span>
                 </>
               )}
@@ -182,10 +182,10 @@ export const ExplainPage: React.FC = () => {
 
             <button
               onClick={handleSaveNote}
-              className={`px-3 py-2 rounded-xl border text-xs font-semibold transition-all flex items-center gap-1.5 ${
+              className={`px-3.5 py-2 rounded-full border text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
                 savedSuccess
-                  ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400'
-                  : 'bg-surface border-border hover:bg-surface-hover text-foreground'
+                  ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+                  : 'bg-white/[0.05] border-white/[0.1] hover:bg-white/[0.1] text-white'
               }`}
             >
               <Bookmark className="w-3.5 h-3.5" />
@@ -202,9 +202,9 @@ export const ExplainPage: React.FC = () => {
                   },
                 })
               }
-              className="px-3.5 py-2 rounded-xl bg-surface-elevated border border-border hover:border-secondary/40 text-foreground text-xs font-semibold hover:bg-surface-hover transition-colors flex items-center gap-1.5"
+              className="px-3.5 py-2 rounded-full bg-white/[0.05] border border-white/[0.1] text-white hover:bg-white/[0.1] text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
             >
-              <MessageSquare className="w-3.5 h-3.5 text-secondary" />
+              <MessageSquare className="w-3.5 h-3.5 text-indigo-400" />
               <span>Chat With Tutor</span>
             </button>
 
@@ -218,7 +218,7 @@ export const ExplainPage: React.FC = () => {
                   },
                 })
               }
-              className="px-4 py-2 rounded-xl bg-primary text-white text-xs font-semibold shadow-md glow-primary hover:bg-primary-hover transition-all flex items-center gap-1.5"
+              className="px-4 py-2 rounded-full bg-white text-black hover:bg-neutral-200 text-xs font-semibold shadow-md transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
             >
               <Award className="w-3.5 h-3.5" />
               <span>Take Quiz</span>
@@ -227,20 +227,20 @@ export const ExplainPage: React.FC = () => {
         </div>
 
         {/* Mode & Language Controls Toolbar */}
-        <div className="glass-card p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="bg-[#0c0c12] p-4 rounded-2xl border border-white/[0.08] flex flex-col sm:flex-row items-center justify-between gap-4">
           {/* Explanation Mode Selector */}
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Sliders className="w-4 h-4 text-foreground-muted shrink-0" />
-            <span className="text-xs font-semibold text-foreground-muted">Mode:</span>
-            <div className="flex rounded-xl bg-surface p-1 border border-border text-xs w-full sm:w-auto">
+            <Sliders className="w-4 h-4 text-neutral-400 shrink-0" />
+            <span className="text-xs font-semibold text-neutral-400">Mode:</span>
+            <div className="flex rounded-full bg-white/[0.04] p-1 border border-white/[0.08] text-xs w-full sm:w-auto">
               {(['beginner', 'standard', 'exam'] as ExplanationMode[]).map((m) => (
                 <button
                   key={m}
                   onClick={() => handleModeChange(m)}
-                  className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg font-medium capitalize transition-all ${
+                  className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-full font-medium capitalize transition-all cursor-pointer ${
                     mode === m
-                      ? 'bg-primary text-white font-semibold shadow-sm'
-                      : 'text-foreground-muted hover:text-foreground'
+                      ? 'bg-white text-black font-semibold shadow-sm'
+                      : 'text-neutral-400 hover:text-white'
                   }`}
                 >
                   {m === 'exam' ? 'Exam Prep' : m}
@@ -251,26 +251,26 @@ export const ExplainPage: React.FC = () => {
 
           {/* Language Selector */}
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Globe2 className="w-4 h-4 text-secondary shrink-0" />
-            <span className="text-xs font-semibold text-foreground-muted">Language:</span>
-            <div className="flex rounded-xl bg-surface p-1 border border-border text-xs w-full sm:w-auto">
+            <Globe2 className="w-4 h-4 text-indigo-400 shrink-0" />
+            <span className="text-xs font-semibold text-neutral-400">Language:</span>
+            <div className="flex rounded-full bg-white/[0.04] p-1 border border-white/[0.08] text-xs w-full sm:w-auto">
               {(
                 [
                   { id: 'english', label: 'English' },
                   { id: 'bilingual', label: 'Bilingual (En + Te)' },
-                  { id: 'telugu', label: 'తెలుగు (Telugu)' },
+                  { id: 'telugu', label: 'Telugu Only' },
                 ] as const
-              ).map((l) => (
+              ).map((lang) => (
                 <button
-                  key={l.id}
-                  onClick={() => handleLanguageChange(l.id)}
-                  className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg font-medium transition-all ${
-                    language === l.id
-                      ? 'bg-secondary text-black font-bold shadow-sm'
-                      : 'text-foreground-muted hover:text-foreground'
+                  key={lang.id}
+                  onClick={() => handleLanguageChange(lang.id)}
+                  className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-full font-medium transition-all cursor-pointer ${
+                    language === lang.id
+                      ? 'bg-white text-black font-semibold shadow-sm'
+                      : 'text-neutral-400 hover:text-white'
                   }`}
                 >
-                  {l.label}
+                  {lang.label}
                 </button>
               ))}
             </div>

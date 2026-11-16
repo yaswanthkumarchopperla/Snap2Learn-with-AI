@@ -334,34 +334,36 @@ export const FlashcardsPage: React.FC = () => {
     <SidebarLayout>
       <div className="p-4 sm:p-6 lg:p-8 max-w-4xl w-full mx-auto space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
-              <Layers className="w-6 h-6 text-secondary" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.08]">
+          <div className="space-y-1">
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center">
+                <Layers className="w-4 h-4 text-indigo-400" />
+              </div>
               <span>Smart Flashcards</span>
             </h1>
-            <p className="text-xs sm:text-sm text-foreground-muted mt-1">
+            <p className="text-xs sm:text-sm text-neutral-400">
               Active recall & spaced repetition for engineering formulas and core concepts.
             </p>
           </div>
 
-          <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          <div className="flex items-center gap-2.5 self-start sm:self-auto flex-wrap">
             <AutosaveIndicator compact={false} />
             <button
               onClick={() => {
                 setGenError(null);
                 setShowAiModal(true);
               }}
-              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-secondary to-primary text-white text-xs font-semibold shadow-md glow-secondary hover:opacity-95 transition-all flex items-center gap-1.5 cursor-pointer"
+              className="px-3.5 py-2 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white text-xs font-semibold shadow-lg shadow-indigo-500/20 border border-white/10 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
             >
-              <Sparkles className="w-4 h-4 text-cyan-200 animate-pulse" />
+              <Sparkles className="w-3.5 h-3.5 text-indigo-200 animate-pulse" />
               <span>⚡ AI Generate</span>
             </button>
             <button
               onClick={() => setShowAddModal(true)}
-              className="px-3 py-2 rounded-xl bg-surface border border-border text-foreground hover:bg-surface-hover text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
+              className="px-3.5 py-2 rounded-full bg-white/[0.05] border border-white/[0.1] text-white hover:bg-white/[0.1] text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5" />
               <span>+ New Card</span>
             </button>
           </div>
@@ -382,7 +384,7 @@ export const FlashcardsPage: React.FC = () => {
         )}
 
         {/* Dynamic Subject Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
           {dynamicSubjects.map((subj) => (
             <button
               key={subj}
@@ -391,10 +393,10 @@ export const FlashcardsPage: React.FC = () => {
                 setCurrentIndex(0);
                 setIsFlipped(false);
               }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
                 selectedSubject === subj
-                  ? 'bg-primary text-white shadow-sm glow-primary'
-                  : 'bg-surface border border-border text-foreground-muted hover:text-foreground'
+                  ? 'bg-white text-black font-semibold shadow-md'
+                  : 'bg-white/[0.04] border border-white/[0.08] text-neutral-400 hover:text-white hover:border-white/20'
               }`}
             >
               {subj}
@@ -736,11 +738,11 @@ export const FlashcardsPage: React.FC = () => {
             {/* Interactive 3D Flip Flashcard */}
             <div
               onClick={() => setIsFlipped(!isFlipped)}
-              className="cursor-pointer group relative min-h-[300px] sm:min-h-[340px] rounded-3xl glass-card border border-white/10 p-8 flex flex-col justify-between hover:border-secondary/40 transition-all shadow-xl select-none"
+              className="cursor-pointer group relative min-h-[300px] sm:min-h-[340px] rounded-3xl bg-[#0c0c12] border border-white/[0.1] hover:border-white/20 p-8 flex flex-col justify-between transition-all shadow-2xl select-none"
             >
               {/* Card Header */}
               <div className="flex items-center justify-between">
-                <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-surface-elevated text-secondary border border-border">
+                <span className="px-3 py-1 rounded-full text-[11px] font-medium bg-white/[0.04] text-neutral-300 border border-white/[0.08]">
                   {currentCard?.subject} • {currentCard?.topic}
                 </span>
 
@@ -748,12 +750,12 @@ export const FlashcardsPage: React.FC = () => {
                   {/* Learning Status Pill */}
                   <span
                     onClick={(e) => handleStatusChange(e, currentCard?.learning_status === 'known' ? 'learning' : 'known')}
-                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-colors cursor-pointer ${
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-semibold border transition-colors cursor-pointer ${
                       currentCard?.learning_status === 'known'
-                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
+                        ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
                         : currentCard?.learning_status === 'unknown'
-                        ? 'bg-red-500/20 text-red-400 border-red-500/40'
-                        : 'bg-blue-500/20 text-blue-400 border-blue-500/40'
+                        ? 'bg-red-500/15 text-red-400 border-red-500/30'
+                        : 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30'
                     }`}
                     title="Click to toggle known/learning status"
                   >
@@ -766,8 +768,8 @@ export const FlashcardsPage: React.FC = () => {
                     onClick={handleToggleBookmark}
                     className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
                       currentCard?.is_bookmarked
-                        ? 'bg-amber-500/20 text-amber-400 border-amber-500/40'
-                        : 'bg-surface border-border text-foreground-muted hover:text-foreground'
+                        ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                        : 'bg-white/[0.04] border-white/[0.08] text-neutral-400 hover:text-white'
                     }`}
                     title={currentCard?.is_bookmarked ? 'Bookmarked' : 'Add bookmark'}
                   >
@@ -778,13 +780,13 @@ export const FlashcardsPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleDeleteCard}
-                    className="p-1.5 rounded-lg border border-border bg-surface text-foreground-muted hover:text-red-400 hover:border-red-500/30 transition-colors cursor-pointer"
+                    className="p-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] text-neutral-400 hover:text-red-400 hover:border-red-500/30 transition-colors cursor-pointer"
                     title="Delete flashcard"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
 
-                  <span className="text-[11px] text-foreground-muted flex items-center gap-1 group-hover:text-secondary transition-colors">
+                  <span className="text-[11px] text-neutral-400 flex items-center gap-1 group-hover:text-white transition-colors">
                     <RotateCw className="w-3.5 h-3.5" /> Flip
                   </span>
                 </div>
@@ -794,23 +796,23 @@ export const FlashcardsPage: React.FC = () => {
               <div className="my-auto py-6 text-center">
                 {!isFlipped ? (
                   <div>
-                    <span className="text-[10px] uppercase font-bold text-foreground-muted tracking-wider block mb-2">
-                      Prompt / Question
+                    <span className="text-[10px] uppercase font-mono tracking-wider text-neutral-400 block mb-3">
+                      PROMPT / QUESTION
                     </span>
-                    <h2 className="text-lg sm:text-xl font-bold text-foreground leading-relaxed max-w-xl mx-auto">
+                    <h2 className="text-lg sm:text-2xl font-bold text-white leading-relaxed max-w-xl mx-auto">
                       <MathRenderer content={currentCard?.front_prompt || ''} />
                     </h2>
                   </div>
                 ) : (
                   <div>
-                    <span className="text-[10px] uppercase font-bold text-secondary tracking-wider block mb-2">
-                      Answer & Proof
+                    <span className="text-[10px] uppercase font-mono tracking-wider text-indigo-400 block mb-3">
+                      ANSWER & PROOF
                     </span>
-                    <p className="text-sm sm:text-base text-foreground leading-relaxed max-w-xl mx-auto mb-4">
+                    <p className="text-sm sm:text-base text-neutral-200 leading-relaxed max-w-xl mx-auto mb-4">
                       <MathRenderer content={currentCard?.back_answer || ''} />
                     </p>
                     {currentCard?.formula_or_code && (
-                      <div className="p-3 rounded-xl bg-black/40 border border-border inline-block text-xs text-secondary max-w-full overflow-x-auto">
+                      <div className="p-3.5 rounded-xl bg-black/60 border border-white/10 inline-block text-xs text-indigo-300 max-w-full overflow-x-auto">
                         <MathRenderer content={currentCard.formula_or_code} block />
                       </div>
                     )}
@@ -819,19 +821,19 @@ export const FlashcardsPage: React.FC = () => {
               </div>
 
               {/* Card Footer */}
-              <div className="text-center text-[10px] text-foreground-muted">
+              <div className="text-center text-[10px] text-neutral-500">
                 {isFlipped ? 'How well did you recall this concept? (Rating auto-saves to your profile)' : 'Tap card to reveal answer and recall rating'}
               </div>
             </div>
 
             {/* Navigation & Ease Rating Toolbar */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 rounded-2xl bg-surface border border-border">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 rounded-2xl bg-[#0c0c12] border border-white/[0.08]">
               {/* Prev / Next Deck Steppers */}
-              <div className="flex items-center gap-1.5 w-full sm:w-auto justify-between sm:justify-start">
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
                 <button
                   type="button"
                   onClick={handlePrevCard}
-                  className="px-3 py-1.5 rounded-xl bg-surface-elevated hover:bg-border text-foreground text-xs font-semibold border border-border flex items-center gap-1 transition-colors cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-white text-xs font-medium border border-white/[0.08] flex items-center gap-1.5 transition-colors cursor-pointer"
                   title="Previous flashcard"
                 >
                   <ChevronLeft className="w-4 h-4" /> Prev
@@ -839,14 +841,14 @@ export const FlashcardsPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsFlipped(!isFlipped)}
-                  className="px-3.5 py-1.5 rounded-xl bg-surface-elevated hover:bg-border text-secondary text-xs font-semibold border border-secondary/30 flex items-center gap-1 transition-colors cursor-pointer"
+                  className="px-4 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-indigo-300 text-xs font-medium border border-indigo-500/20 flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <RotateCw className="w-3.5 h-3.5" /> Flip Card
                 </button>
                 <button
                   type="button"
                   onClick={handleNextCard}
-                  className="px-3 py-1.5 rounded-xl bg-surface-elevated hover:bg-border text-foreground text-xs font-semibold border border-border flex items-center gap-1 transition-colors cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-white text-xs font-medium border border-white/[0.08] flex items-center gap-1.5 transition-colors cursor-pointer"
                   title="Next flashcard"
                 >
                   Next <ChevronRight className="w-4 h-4" />
@@ -857,21 +859,21 @@ export const FlashcardsPage: React.FC = () => {
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <button
                   onClick={() => handleRate('hard')}
-                  className="flex-1 sm:flex-none px-3.5 py-1.5 rounded-xl bg-red-500/15 border border-red-500/30 text-red-400 hover:bg-red-500/25 text-xs font-bold transition-colors cursor-pointer"
+                  className="flex-1 sm:flex-none px-4 py-1.5 rounded-xl bg-red-500/15 border border-red-500/30 text-red-400 hover:bg-red-500/25 text-xs font-semibold transition-colors cursor-pointer"
                   title="Hard: review again soon"
                 >
                   Hard
                 </button>
                 <button
                   onClick={() => handleRate('medium')}
-                  className="flex-1 sm:flex-none px-3.5 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/25 text-xs font-bold transition-colors cursor-pointer"
+                  className="flex-1 sm:flex-none px-4 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/25 text-xs font-semibold transition-colors cursor-pointer"
                   title="Medium: good recall"
                 >
                   Medium
                 </button>
                 <button
                   onClick={() => handleRate('easy')}
-                  className="flex-1 sm:flex-none px-3.5 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 text-xs font-bold transition-colors cursor-pointer"
+                  className="flex-1 sm:flex-none px-4 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 text-xs font-semibold transition-colors cursor-pointer"
                   title="Easy: mastered concept"
                 >
                   Easy

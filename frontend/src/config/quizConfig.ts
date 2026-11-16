@@ -51,11 +51,58 @@ export function getQuizDurationSeconds(
 
 /**
  * Formats a duration in seconds to standard MM:SS display.
+ * Example: 155 -> "02:35", 0 -> "00:00"
  */
 export function formatQuizTime(seconds: number): string {
-  const safeSecs = Math.max(0, Math.floor(seconds));
+  const safeSecs = Math.max(0, Math.floor(seconds || 0));
   const m = Math.floor(safeSecs / 60);
   const s = safeSecs % 60;
   return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
 }
+
+export type QuizPerformanceStatus = 'EXCELLENT' | 'GOOD' | 'REVIEW';
+
+export interface QuizStatusMeta {
+  status: QuizPerformanceStatus;
+  label: string;
+  textColor: string;
+  bgColor: string;
+  borderColor: string;
+}
+
+/**
+ * Calculates dynamic status based on actual quiz score and accuracy:
+ * - 80% to 100%: EXCELLENT
+ * - 60% to 79%: GOOD
+ * - Below 60%: REVIEW
+ */
+export function getQuizPerformanceStatus(scorePercentage: number): QuizStatusMeta {
+  const score = Math.round(scorePercentage || 0);
+  if (score >= 80) {
+    return {
+      status: 'EXCELLENT',
+      label: 'EXCELLENT',
+      textColor: 'text-emerald-400',
+      bgColor: 'bg-emerald-500/10',
+      borderColor: 'border-emerald-500/30',
+    };
+  }
+  if (score >= 60) {
+    return {
+      status: 'GOOD',
+      label: 'GOOD',
+      textColor: 'text-indigo-400',
+      bgColor: 'bg-indigo-500/10',
+      borderColor: 'border-indigo-500/30',
+    };
+  }
+  return {
+    status: 'REVIEW',
+    label: 'REVIEW',
+    textColor: 'text-amber-400',
+    bgColor: 'bg-amber-500/10',
+    borderColor: 'border-amber-500/30',
+  };
+}
+
 

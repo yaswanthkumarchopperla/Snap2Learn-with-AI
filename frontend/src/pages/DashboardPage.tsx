@@ -59,22 +59,26 @@ export const DashboardPage: React.FC = () => {
 
   return (
     <SidebarLayout>
-      <div className="p-3.5 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-5 sm:space-y-6 pb-20 lg:pb-8 min-w-0">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6 pb-20 lg:pb-8 min-w-0">
         {/* Top Header / Greeting */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
-          <div className="min-w-0">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-foreground truncate">
-              Hello, {user?.displayName || 'Student'}! 👋
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.08]">
+          <div className="min-w-0 space-y-1">
+            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.08] text-[11px] text-neutral-300">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              <span>Workspace Active</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white truncate">
+              Hello, {user?.displayName || 'Student'}
             </h1>
-            <p className="text-xs sm:text-sm text-foreground-muted mt-0.5">
-              Ready to turn today's lectures into exam-ready masteries?
+            <p className="text-xs sm:text-sm text-neutral-400">
+              Turn today's lectures into exam-ready mastery with AI vision and active recall.
             </p>
           </div>
 
           <button
             type="button"
             onClick={() => navigate('/scanner')}
-            className="self-stretch sm:self-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white text-xs font-semibold shadow-md glow-primary hover:opacity-95 transition-all flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+            className="self-stretch sm:self-auto px-4 py-2.5 rounded-full bg-white text-black hover:bg-neutral-200 text-xs font-semibold shadow-lg transition-all flex items-center justify-center gap-2 shrink-0 cursor-pointer active:scale-95"
           >
             <Scan className="w-4 h-4" />
             <span>Scan New Note</span>
@@ -82,57 +86,57 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         {/* KPI Metrics Row: 1 col on mobile, 2 cols on tablet, 4 cols on desktop */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <div className="glass-card p-4 min-w-0 overflow-hidden flex flex-col justify-between">
-            <div className="flex items-center justify-between text-foreground-muted mb-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          <div className="p-4 rounded-2xl bg-[#0c0c11] border border-white/[0.08] hover:border-white/[0.16] transition-all min-w-0 overflow-hidden flex flex-col justify-between">
+            <div className="flex items-center justify-between text-neutral-400 mb-2 gap-2">
               <span className="text-xs font-medium truncate">Notes Scanned</span>
-              <div className="p-2 rounded-xl bg-primary/10 text-primary shrink-0">
+              <div className="p-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-indigo-400 shrink-0">
                 <BookOpen className="w-4 h-4" />
               </div>
             </div>
-            <p className="text-2xl sm:text-3xl font-extrabold text-foreground truncate">
+            <p className="text-2xl sm:text-3xl font-extrabold text-white truncate">
               {loading ? '...' : analytics?.total_notes || 0}
             </p>
-            <span className="text-[11px] text-foreground-muted mt-1 block truncate">Active study sources</span>
+            <span className="text-[11px] text-neutral-500 mt-1 block truncate">Active study sources</span>
           </div>
 
-          <div className="glass-card p-4 min-w-0 overflow-hidden flex flex-col justify-between">
-            <div className="flex items-center justify-between text-foreground-muted mb-2 gap-2">
+          <div className="p-4 rounded-2xl bg-[#0c0c11] border border-white/[0.08] hover:border-white/[0.16] transition-all min-w-0 overflow-hidden flex flex-col justify-between">
+            <div className="flex items-center justify-between text-neutral-400 mb-2 gap-2">
               <span className="text-xs font-medium truncate">Quizzes Completed</span>
-              <div className="p-2 rounded-xl bg-secondary/10 text-secondary shrink-0">
+              <div className="p-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-cyan-400 shrink-0">
                 <Award className="w-4 h-4" />
               </div>
             </div>
-            <p className="text-2xl sm:text-3xl font-extrabold text-foreground truncate">
+            <p className="text-2xl sm:text-3xl font-extrabold text-white truncate">
               {loading ? '...' : analytics?.quizzes_completed || 0}
             </p>
-            <span className="text-[11px] text-foreground-muted mt-1 block truncate">Deterministic tests</span>
+            <span className="text-[11px] text-neutral-500 mt-1 block truncate">Deterministic tests</span>
           </div>
 
-          <div className="glass-card p-4 min-w-0 overflow-hidden flex flex-col justify-between">
-            <div className="flex items-center justify-between text-foreground-muted mb-2 gap-2">
+          <div className="p-4 rounded-2xl bg-[#0c0c11] border border-white/[0.08] hover:border-white/[0.16] transition-all min-w-0 overflow-hidden flex flex-col justify-between">
+            <div className="flex items-center justify-between text-neutral-400 mb-2 gap-2">
               <span className="text-xs font-medium truncate">Average Accuracy</span>
-              <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 shrink-0">
+              <div className="p-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-emerald-400 shrink-0">
                 <TrendingUp className="w-4 h-4" />
               </div>
             </div>
-            <p className="text-2xl sm:text-3xl font-extrabold text-foreground truncate">
+            <p className="text-2xl sm:text-3xl font-extrabold text-white truncate">
               {loading ? '...' : `${analytics?.average_accuracy || 0}%`}
             </p>
-            <span className="text-[11px] text-foreground-muted mt-1 block truncate">Pass benchmark: 60%</span>
+            <span className="text-[11px] text-neutral-500 mt-1 block truncate">Pass benchmark: 60%</span>
           </div>
 
-          <div className="glass-card p-4 min-w-0 overflow-hidden flex flex-col justify-between">
-            <div className="flex items-center justify-between text-foreground-muted mb-2 gap-2">
+          <div className="p-4 rounded-2xl bg-[#0c0c11] border border-white/[0.08] hover:border-white/[0.16] transition-all min-w-0 overflow-hidden flex flex-col justify-between">
+            <div className="flex items-center justify-between text-neutral-400 mb-2 gap-2">
               <span className="text-xs font-medium truncate">Study Streak</span>
-              <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 shrink-0">
+              <div className="p-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-amber-400 shrink-0">
                 <Flame className="w-4 h-4" />
               </div>
             </div>
-            <p className="text-2xl sm:text-3xl font-extrabold text-foreground truncate">
+            <p className="text-2xl sm:text-3xl font-extrabold text-white truncate">
               {loading ? '...' : `${analytics?.study_streak_days || 0} Days`}
             </p>
-            <span className="text-[11px] text-foreground-muted mt-1 block truncate">Consistent revision</span>
+            <span className="text-[11px] text-neutral-500 mt-1 block truncate">Consistent revision</span>
           </div>
         </div>
 
@@ -153,7 +157,7 @@ export const DashboardPage: React.FC = () => {
             <button
               type="button"
               onClick={() => navigate('/quiz')}
-              className="self-stretch sm:self-auto px-3.5 py-2 rounded-xl bg-amber-500 text-black text-xs font-bold hover:bg-amber-400 transition-colors shrink-0 text-center cursor-pointer"
+              className="self-stretch sm:self-auto px-4 py-2 rounded-full bg-amber-400 text-black text-xs font-bold hover:bg-amber-300 transition-colors shrink-0 text-center cursor-pointer"
             >
               Practice Quiz Now
             </button>
@@ -163,11 +167,11 @@ export const DashboardPage: React.FC = () => {
         {/* Charts Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6 min-w-0">
           {/* Subject Performance Chart */}
-          <div className="glass-card p-4 sm:p-5 flex flex-col justify-between min-w-0 overflow-hidden w-full">
+          <div className="p-5 rounded-2xl bg-[#0c0c11] border border-white/[0.08] flex flex-col justify-between min-w-0 overflow-hidden w-full">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <h3 className="text-sm font-bold text-foreground">Subject Mastery Breakdown</h3>
-                <p className="text-[11px] text-foreground-muted">Quiz accuracy per academic subject</p>
+                <h3 className="text-sm font-bold text-white">Subject Mastery Breakdown</h3>
+                <p className="text-[11px] text-neutral-400">Quiz accuracy per academic subject</p>
               </div>
             </div>
 
@@ -177,20 +181,20 @@ export const DashboardPage: React.FC = () => {
                   <BarChart data={analytics.subject_performance} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <XAxis
                       dataKey="subject"
-                      stroke="#64748B"
+                      stroke="#52525b"
                       fontSize={11}
                       tickLine={false}
                       tickFormatter={(val) => truncateLabel(val, 12)}
                     />
-                    <YAxis stroke="#64748B" fontSize={11} domain={[0, 100]} />
+                    <YAxis stroke="#52525b" fontSize={11} domain={[0, 100]} />
                     <Tooltip
-                      contentStyle={{ backgroundColor: '#11162A', borderColor: '#2e303a', borderRadius: '8px', fontSize: '12px' }}
+                      contentStyle={{ backgroundColor: '#121217', borderColor: 'rgba(255,255,255,0.12)', borderRadius: '12px', fontSize: '12px', color: '#fff' }}
                     />
-                    <Bar dataKey="accuracy" fill="#7559FF" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="accuracy" fill="#6366F1" radius={[6, 6, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-full flex items-center justify-center text-xs text-foreground-muted">
+                <div className="h-full flex items-center justify-center text-xs text-neutral-500">
                   No subject quizzes taken yet.
                 </div>
               )}
@@ -198,11 +202,11 @@ export const DashboardPage: React.FC = () => {
           </div>
 
           {/* Recent Quiz Attempts Trend */}
-          <div className="glass-card p-4 sm:p-5 flex flex-col justify-between min-w-0 overflow-hidden w-full">
+          <div className="p-5 rounded-2xl bg-[#0c0c11] border border-white/[0.08] flex flex-col justify-between min-w-0 overflow-hidden w-full">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <h3 className="text-sm font-bold text-foreground">Performance Over Time</h3>
-                <p className="text-[11px] text-foreground-muted">Recent quiz accuracy trends</p>
+                <h3 className="text-sm font-bold text-white">Performance Over Time</h3>
+                <p className="text-[11px] text-neutral-400">Recent quiz accuracy trends</p>
               </div>
             </div>
 
@@ -212,26 +216,26 @@ export const DashboardPage: React.FC = () => {
                   <AreaChart data={analytics.recent_activity} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <defs>
                       <linearGradient id="scoreGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#22D3EE" stopOpacity={0.4} />
-                        <stop offset="95%" stopColor="#22D3EE" stopOpacity={0.0} />
+                        <stop offset="5%" stopColor="#38BDF8" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#38BDF8" stopOpacity={0.0} />
                       </linearGradient>
                     </defs>
                     <XAxis
                       dataKey="topic"
-                      stroke="#64748B"
+                      stroke="#52525b"
                       fontSize={11}
                       tickLine={false}
                       tickFormatter={(val) => truncateLabel(val, 10)}
                     />
-                    <YAxis stroke="#64748B" fontSize={11} domain={[0, 100]} />
+                    <YAxis stroke="#52525b" fontSize={11} domain={[0, 100]} />
                     <Tooltip
-                      contentStyle={{ backgroundColor: '#11162A', borderColor: '#2e303a', borderRadius: '8px', fontSize: '12px' }}
+                      contentStyle={{ backgroundColor: '#121217', borderColor: 'rgba(255,255,255,0.12)', borderRadius: '12px', fontSize: '12px', color: '#fff' }}
                     />
-                    <Area type="monotone" dataKey="score_percentage" stroke="#22D3EE" strokeWidth={2} fillOpacity={1} fill="url(#scoreGrad)" />
+                    <Area type="monotone" dataKey="score_percentage" stroke="#38BDF8" strokeWidth={2} fillOpacity={1} fill="url(#scoreGrad)" />
                   </AreaChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-full flex items-center justify-center text-xs text-foreground-muted">
+                <div className="h-full flex items-center justify-center text-xs text-neutral-500">
                   Take a quiz to see your performance timeline.
                 </div>
               )}
@@ -240,16 +244,16 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         {/* Recent Notes & Learning Sessions */}
-        <div className="glass-card p-4 sm:p-5 min-w-0">
+        <div className="p-5 rounded-2xl bg-[#0c0c11] border border-white/[0.08] min-w-0">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-sm font-bold text-foreground">Recent Learning Sessions</h3>
-              <p className="text-[11px] text-foreground-muted">Jump straight back into your study notes</p>
+              <h3 className="text-sm font-bold text-white">Recent Learning Sessions</h3>
+              <p className="text-[11px] text-neutral-400">Jump straight back into your study notes</p>
             </div>
             <button
               type="button"
               onClick={() => navigate('/notes')}
-              className="text-xs text-secondary hover:underline flex items-center gap-1 cursor-pointer"
+              className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 cursor-pointer font-medium"
             >
               <span>View All</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -258,13 +262,13 @@ export const DashboardPage: React.FC = () => {
 
           <div className="space-y-3">
             {notes.length === 0 ? (
-              <div className="text-center py-8">
-                <BookOpen className="w-8 h-8 text-foreground-muted mx-auto mb-2 opacity-50" />
-                <p className="text-xs text-foreground-muted">No notes scanned yet.</p>
+              <div className="text-center py-10 rounded-xl bg-white/[0.02] border border-dashed border-white/[0.08]">
+                <BookOpen className="w-8 h-8 text-neutral-500 mx-auto mb-2 opacity-60" />
+                <p className="text-xs text-neutral-400">No notes scanned yet.</p>
                 <button
                   type="button"
                   onClick={() => navigate('/scanner')}
-                  className="mt-3 px-4 py-2 rounded-xl bg-primary text-white text-xs font-semibold cursor-pointer"
+                  className="mt-3 px-4 py-2 rounded-full bg-white text-black hover:bg-neutral-200 text-xs font-semibold cursor-pointer shadow-md"
                 >
                   Scan Your First Note
                 </button>
@@ -273,20 +277,20 @@ export const DashboardPage: React.FC = () => {
               notes.map((note) => (
                 <div
                   key={note.id}
-                  className="p-3.5 rounded-xl bg-surface border border-border hover:border-border-highlight transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0"
+                  className="p-4 rounded-xl bg-[#101016] border border-white/[0.06] hover:border-white/[0.15] transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0"
                 >
                   <div className="flex items-start gap-3 min-w-0 flex-1">
-                    <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
+                    <div className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.08] text-indigo-400 flex items-center justify-center shrink-0 mt-0.5">
                       <BookOpen className="w-4 h-4" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h4 className="text-xs font-bold text-foreground truncate">{note.title}</h4>
-                      <p className="text-[11px] text-foreground-muted line-clamp-1 break-words">{note.summary || note.raw_text}</p>
-                      <div className="flex flex-wrap items-center gap-2 mt-1">
-                        <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-surface-elevated text-secondary">
+                      <h4 className="text-xs font-bold text-white truncate">{note.title}</h4>
+                      <p className="text-[11px] text-neutral-400 line-clamp-1 break-words">{note.summary || note.raw_text}</p>
+                      <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-medium bg-white/[0.04] border border-white/[0.08] text-neutral-300">
                           {note.subject}
                         </span>
-                        <span className="text-[10px] text-foreground-muted truncate">{note.topic}</span>
+                        <span className="text-[10px] text-neutral-500 truncate">{note.topic}</span>
                       </div>
                     </div>
                   </div>
@@ -295,16 +299,16 @@ export const DashboardPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => navigate('/explain', { state: { text: note.raw_text, subject: note.subject, topic: note.topic } })}
-                      className="flex-1 sm:flex-none text-center px-3 py-1.5 rounded-lg bg-surface-elevated hover:bg-surface-hover text-foreground text-xs font-medium transition-colors cursor-pointer"
+                      className="flex-1 sm:flex-none text-center px-3.5 py-1.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] text-neutral-200 text-xs font-medium transition-colors cursor-pointer"
                     >
                       Read Explanation
                     </button>
                     <button
                       type="button"
                       onClick={() => navigate('/quiz', { state: { text: note.raw_text, subject: note.subject, topic: note.topic } })}
-                      className="flex-1 sm:flex-none text-center px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-medium hover:bg-primary-hover shadow-sm transition-colors cursor-pointer"
+                      className="flex-1 sm:flex-none text-center px-3.5 py-1.5 rounded-lg bg-white text-black hover:bg-neutral-200 text-xs font-medium shadow-sm transition-colors cursor-pointer"
                     >
-                      Quiz
+                      Practice Quiz
                     </button>
                   </div>
                 </div>

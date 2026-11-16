@@ -18,15 +18,15 @@ import { AnalyticsPage } from './pages/AnalyticsPage';
 import { NotesPage } from './pages/NotesPage';
 import { SettingsPage } from './pages/SettingsPage';
 
-// Default entry root router: routes authenticated students to /dashboard, unauthenticated students to /auth
+// Default entry root router: routes authenticated students to /dashboard, unauthenticated visitors to Framer MCP LandingPage
 const RootEntryRedirect: React.FC = () => {
   const { user, isLoading } = useAuth();
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mb-3" />
-        <p className="text-xs text-foreground-muted">Initializing Snap2Learn AI...</p>
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4">
+        <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mb-3" />
+        <p className="text-xs text-neutral-400">Loading Framer MCP...</p>
       </div>
     );
   }
@@ -34,7 +34,7 @@ const RootEntryRedirect: React.FC = () => {
   return user && !user.isGuest ? (
     <Navigate to="/dashboard" replace />
   ) : (
-    <Navigate to="/auth" replace />
+    <LandingPage />
   );
 };
 
@@ -45,17 +45,15 @@ export function App() {
         <AutosaveProvider>
           <BrowserRouter>
             <Routes>
-            {/* Default entry point: Authentication for unauthenticated, Dashboard for authenticated */}
+            {/* Default entry point: LandingPage for visitors, Dashboard for authenticated */}
             <Route path="/" element={<RootEntryRedirect />} />
+
+            {/* Framer MCP Landing Page Direct Routes */}
+            <Route path="/landing" element={<LandingPage />} />
+            <Route path="/mcp" element={<LandingPage />} />
 
             {/* Authentication (Login & Register via Brevo Email OTP) */}
             <Route path="/auth" element={<AuthPage />} />
-
-            {/* Password Reset via Email Link & 6-digit OTP */}
-            <Route path="/reset-password" element={<ResetPasswordPage />} />
-
-            {/* Optional Public Overview / Product Showcase */}
-            <Route path="/landing" element={<LandingPage />} />
 
             {/* Protected Student Workspace Routes */}
             <Route

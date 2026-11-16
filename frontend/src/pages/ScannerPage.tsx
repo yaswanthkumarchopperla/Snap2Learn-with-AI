@@ -39,7 +39,7 @@ import { AutosaveIndicator } from '../components/AutosaveIndicator';
 import { useAutosave } from '../contexts/AutosaveContext';
 import { api } from '../services/api';
 import { useQuizTimer } from '../hooks/useQuizTimer';
-import { getQuizDurationSeconds, formatQuizTime } from '../config/quizConfig';
+import { getQuizDurationSeconds, formatQuizTime, getQuizPerformanceStatus } from '../config/quizConfig';
 import {
   ScanResponse,
   ScanHistoryItem,
@@ -136,11 +136,39 @@ export const ScannerPage: React.FC = () => {
     }
   };
 
-  // Submit Quiz handler forward declaration for timer expiration
+  const handleSubmitQuizRef = useRef<(isTimeout?: boolean) => Promise<void>>(() => Promise.resolve());
+
+  // Reliable countdown timer based on absolute start/end timestamps
+  const {
+    remainingSeconds: quizRemainingSeconds,
+    totalDurationSeconds: quizTotalDuration,
+    timeTakenSeconds: quizTimeTaken,
+    isRunning: isQuizTimerRunning,
+    isPaused: isQuizTimerPaused,
+    formattedTime: formattedQuizTimer,
+    startTimer: startQuizTimer,
+    pauseTimer: pauseQuizTimer,
+    resumeTimer: resumeQuizTimer,
+    stopTimer: stopQuizTimer,
+    resetTimer: resetQuizTimer,
+    getTimeTakenSeconds: quizGetTimeTakenSeconds,
+  } = useQuizTimer({
+    onTimeExpired: () => {
+      handleSubmitQuizRef.current(true);
+    },
+  });
+
+  // Submit Quiz handler for Step 4 -> Step 5
   const handleSubmitQuiz = useCallback(async (isTimeout: boolean = false) => {
     const activeQuiz = quizDataRef.current;
     if (!activeQuiz) return;
-    stopQuizTimer();
+
+    // Calculate actual elapsed seconds from timestamps
+    const calculatedDuration = stopQuizTimer();
+    const finalDurationSeconds = isTimeout && quizTotalDuration > 0
+      ? quizTotalDuration
+      : Math.max(0, calculatedDuration);
+
     setIsSubmittingQuiz(true);
     setQuizError(null);
 
@@ -148,12 +176,18 @@ export const ScannerPage: React.FC = () => {
       const result = await api.submitQuiz({
         quiz_id: activeQuiz.quiz_id,
         answers: selectedAnswersRef.current,
-        time_taken_seconds: quizTimeTaken,
+        time_taken_seconds: finalDurationSeconds,
       });
+
+      // Ensure time_taken_seconds in response is populated accurately
+      if (result.time_taken_seconds === undefined || (result.time_taken_seconds === 0 && finalDurationSeconds > 0)) {
+        result.time_taken_seconds = finalDurationSeconds;
+      }
+
       setQuizResult(result);
       goToStep(5);
 
-      if (result.passed) {
+      if (result.score_percentage >= 60) {
         confetti({
           particleCount: 100,
           spread: 75,
@@ -167,26 +201,9 @@ export const ScannerPage: React.FC = () => {
     } finally {
       setIsSubmittingQuiz(false);
     }
-  }, []);
+  }, [stopQuizTimer, quizTotalDuration]);
 
-  // Reliable countdown timer based on absolute end timestamp
-  const {
-    remainingSeconds: quizRemainingSeconds,
-    totalDurationSeconds: quizTotalDuration,
-    timeTakenSeconds: quizTimeTaken,
-    isRunning: isQuizTimerRunning,
-    isPaused: isQuizTimerPaused,
-    formattedTime: formattedQuizTimer,
-    startTimer: startQuizTimer,
-    pauseTimer: pauseQuizTimer,
-    resumeTimer: resumeQuizTimer,
-    stopTimer: stopQuizTimer,
-    resetTimer: resetQuizTimer,
-  } = useQuizTimer({
-    onTimeExpired: () => {
-      handleSubmitQuiz(true);
-    },
-  });
+  handleSubmitQuizRef.current = handleSubmitQuiz;
 
   // Cleanup preview URL on unmount
   useEffect(() => {
@@ -531,12 +548,13 @@ export const ScannerPage: React.FC = () => {
     setSelectedAnswers(newAnswers);
 
     if (quizData) {
+      const currentElapsed = quizGetTimeTakenSeconds();
       triggerAutosave(async () => {
         return await api.saveQuizProgress({
           quiz_id: quizData.quiz_id,
           answers: newAnswers,
           current_question_index: currentQIndex,
-          time_taken_seconds: quizTimeTaken,
+          time_taken_seconds: currentElapsed,
         });
       }, {
         type: 'quiz_progress',
@@ -546,7 +564,7 @@ export const ScannerPage: React.FC = () => {
           quiz_id: quizData.quiz_id,
           answers: newAnswers,
           current_question_index: currentQIndex,
-          time_taken_seconds: quizTimeTaken,
+          time_taken_seconds: currentElapsed,
         }
       });
     }
@@ -564,35 +582,37 @@ export const ScannerPage: React.FC = () => {
     <SidebarLayout>
       <div className="p-4 sm:p-6 lg:p-8 max-w-6xl w-full mx-auto space-y-6">
         {/* Page Top Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-border">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2.5">
-              <Camera className="w-6 h-6 text-secondary" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.08]">
+          <div className="space-y-1">
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center">
+                <Camera className="w-4 h-4 text-indigo-400" />
+              </div>
               <span>Smart Study Scanner</span>
             </h1>
-            <p className="text-xs sm:text-sm text-foreground-muted mt-1">
+            <p className="text-xs sm:text-sm text-neutral-400">
               Complete 5-step learning workflow: Scan → Extract → Explain → Quiz → Score
             </p>
           </div>
 
-          <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          <div className="flex items-center gap-2.5 self-start sm:self-auto flex-wrap">
             <AutosaveIndicator compact={false} />
             {scanHistory.length > 0 && (
               <button
                 type="button"
                 onClick={() => setShowHistoryModal(!showHistoryModal)}
-                className="px-3.5 py-2 rounded-xl bg-surface border border-border text-foreground hover:border-secondary/40 text-xs font-semibold hover:bg-surface-hover transition-colors flex items-center gap-1.5 shadow-xs"
+                className="px-3.5 py-2 rounded-full bg-white/[0.05] border border-white/[0.1] text-white hover:bg-white/[0.1] text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer"
               >
-                <History className="w-3.5 h-3.5 text-secondary" />
+                <History className="w-3.5 h-3.5 text-indigo-400" />
                 <span>Recent Scans ({scanHistory.length})</span>
               </button>
             )}
             <button
               type="button"
               onClick={handleLoadSample}
-              className="px-3.5 py-2 rounded-xl bg-surface border border-border text-foreground hover:border-secondary/40 text-xs font-semibold hover:bg-surface-hover transition-colors flex items-center gap-1.5 shadow-xs"
+              className="px-3.5 py-2 rounded-full bg-white text-black hover:bg-neutral-200 text-xs font-semibold shadow-md transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
             >
-              <Sparkles className="w-3.5 h-3.5 text-secondary" />
+              <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
               <span>Load Engineering Sample</span>
             </button>
           </div>
@@ -600,7 +620,7 @@ export const ScannerPage: React.FC = () => {
 
         {/* Recent Scans Revisit Drawer */}
         {showHistoryModal && (
-          <div className="glass-card p-4 sm:p-5 border border-secondary/30 space-y-3 animate-in fade-in slide-in-from-top-2">
+          <div className="bg-[#0c0c12] p-4 sm:p-5 rounded-2xl border border-white/[0.08] space-y-3 animate-in fade-in slide-in-from-top-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <History className="w-4 h-4 text-secondary" />
@@ -1729,32 +1749,71 @@ export const ScannerPage: React.FC = () => {
         {/* ------------------------------------------------------------- */}
         {/* STEP 5: VIEW SCORE & RATIONALE                                */}
         {/* ------------------------------------------------------------- */}
-        {currentStep === 5 && quizResult && (
-          <div className="space-y-6">
-            {/* Score Banner */}
-            <div
-              className={`glass-card p-6 sm:p-8 text-center border-2 ${
-                quizResult.passed ? 'border-emerald-500/50' : 'border-amber-500/50'
-              }`}
-            >
+        {currentStep === 5 && quizResult && (() => {
+          const perfStatus = getQuizPerformanceStatus(quizResult.score_percentage);
+          return (
+            <div className="space-y-6">
+              {/* Score Banner */}
               <div
-                className={`w-20 h-20 rounded-full mx-auto flex items-center justify-center font-black text-2xl mb-3 shadow-lg ${
-                  quizResult.passed
-                    ? 'bg-emerald-500/20 text-emerald-400 border-2 border-emerald-500/40'
-                    : 'bg-amber-500/20 text-amber-400 border-2 border-amber-500/40'
+                className={`glass-card p-6 sm:p-8 text-center border-2 ${
+                  perfStatus.status === 'EXCELLENT'
+                    ? 'border-emerald-500/50'
+                    : perfStatus.status === 'GOOD'
+                    ? 'border-indigo-500/50'
+                    : 'border-amber-500/50'
                 }`}
               >
-                {quizResult.score_percentage}%
-              </div>
+                <div
+                  className={`w-20 h-20 rounded-full mx-auto flex items-center justify-center font-black text-2xl mb-3 shadow-lg ${
+                    perfStatus.status === 'EXCELLENT'
+                      ? 'bg-emerald-500/20 text-emerald-400 border-2 border-emerald-500/40'
+                      : perfStatus.status === 'GOOD'
+                      ? 'bg-indigo-500/20 text-indigo-400 border-2 border-indigo-500/40'
+                      : 'bg-amber-500/20 text-amber-400 border-2 border-amber-500/40'
+                  }`}
+                >
+                  {quizResult.score_percentage}%
+                </div>
 
-              <h2 className="text-xl sm:text-2xl font-extrabold text-foreground mb-1">
-                {quizResult.passed ? 'Mastery Achieved! 🎉' : 'Keep Practicing! 📚'}
-              </h2>
-              <p className="text-xs sm:text-sm text-foreground-muted mb-4">
-                You scored {quizResult.correct_count} out of {quizResult.total_questions} questions correct in {formatQuizTime(quizResult.time_taken_seconds)}.
-              </p>
+                <h2 className="text-xl sm:text-2xl font-extrabold text-foreground mb-1">
+                  {perfStatus.status === 'EXCELLENT'
+                    ? 'Mastery Achieved! 🎉'
+                    : perfStatus.status === 'GOOD'
+                    ? 'Good Understanding! 👍'
+                    : 'Keep Practicing! 📚'}
+                </h2>
+                <p className="text-xs sm:text-sm text-foreground-muted mb-4">
+                  You scored {quizResult.correct_count} out of {quizResult.total_questions} questions correct in {formatQuizTime(quizResult.time_taken_seconds)}.
+                </p>
 
-              <div className="flex flex-wrap items-center justify-center gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-lg mx-auto mb-6">
+                  <div className="p-3 rounded-xl bg-surface border border-border">
+                    <span className="text-[10px] text-foreground-muted block">Score</span>
+                    <span className="text-xl font-extrabold text-foreground">
+                      {quizResult.correct_count} / {quizResult.total_questions}
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-surface border border-border">
+                    <span className="text-[10px] text-foreground-muted block">Accuracy</span>
+                    <span className="text-xl font-extrabold text-secondary">
+                      {quizResult.score_percentage}%
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-surface border border-border">
+                    <span className="text-[10px] text-foreground-muted block">Status</span>
+                    <span className={`text-xl font-extrabold ${perfStatus.textColor}`}>
+                      {perfStatus.label}
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-surface border border-border">
+                    <span className="text-[10px] text-foreground-muted block">Time Taken</span>
+                    <span className="text-xl font-extrabold text-foreground">
+                      {formatQuizTime(quizResult.time_taken_seconds)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-center gap-3">
                 <button
                   type="button"
                   onClick={() => {
@@ -1879,7 +1938,8 @@ export const ScannerPage: React.FC = () => {
               })}
             </div>
           </div>
-        )}
+        );
+      })()}
       </div>
     </SidebarLayout>
   );
