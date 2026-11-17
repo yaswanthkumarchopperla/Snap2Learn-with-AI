@@ -174,21 +174,21 @@ export const LandingPage: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-black text-white font-sans antialiased selection:bg-cyan-500/30 selection:text-white">
+    <div className="min-h-screen bg-[#0e131f] text-white font-sans antialiased selection:bg-[#ff6b35]/30 selection:text-white">
       {/* ---------------- NAVIGATION BAR ---------------- */}
-      <nav className="fixed top-0 inset-x-0 z-50 h-16 bg-black/90 backdrop-blur-md border-b border-white/10 transition-all shadow-md">
+      <nav className="fixed top-0 inset-x-0 z-50 h-16 bg-[#0e131f]/90 backdrop-blur-md border-b border-[#1e2638] transition-all shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">
           {/* Brand */}
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 border border-cyan-400/50 flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.35)]">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#ff6b35] to-[#38bdf8] border border-[#ff6b35]/50 flex items-center justify-center shadow-[0_0_15px_rgba(255,107,53,0.35)]">
               <BookOpen className="w-5 h-5 text-white" />
             </div>
             <div className="flex items-center gap-2">
               <span className="font-bold text-base tracking-tight text-white flex items-center">
-                Snap2Learn<span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 font-extrabold ml-1">AI</span>
+                Snap2Learn<span className="text-[#ff6b35] font-extrabold ml-1">AI</span>
               </span>
-              <span className="px-2 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-400/30 text-[10px] font-mono text-cyan-300 hidden sm:inline shadow-[0_0_8px_rgba(6,182,212,0.2)]">
-                v2.5 Pro
+              <span className="px-2.5 py-0.5 rounded-full bg-[#ff6b35]/15 border border-[#ff6b35]/30 text-[10px] font-mono text-[#ff6b35] hidden sm:inline shadow-[0_0_8px_rgba(255,107,53,0.2)]">
+                Aditya Maya v2.5
               </span>
             </div>
           </div>

@@ -26,38 +26,53 @@
 
 @layer base {
   :root {
-    /* Pure Pitch Black Canvas & Crisp White Matter */
-    --background: #000000;
-    --surface: #07070a;
-    --surface-elevated: #0e0e14;
-    --surface-hover: #161622;
-    --border: rgba(255, 255, 255, 0.12);
-    --border-highlight: rgba(56, 189, 248, 0.50);
+    /* Aditya University Maya Midnight Slate & Sunset Orange Theme (Default) */
+    --background: #0e131f;
+    --surface: #161d2d;
+    --surface-elevated: #1b2337;
+    --surface-hover: #222b40;
+    --border: rgba(255, 255, 255, 0.08);
+    --border-highlight: #ff6b35;
     
-    /* Vibrant presentation accents */
-    --primary: #6366F1;
-    --primary-hover: #4F46E5;
-    --primary-glow: rgba(99, 102, 241, 0.45);
+    /* Vibrant Aditya Maya presentation accents */
+    --primary: #ff6b35;
+    --primary-hover: #f95721;
+    --primary-glow: rgba(255, 107, 53, 0.45);
     
-    --secondary: #06B6D4;
-    --secondary-hover: #0891B2;
-    --secondary-glow: rgba(6, 182, 212, 0.45);
+    --secondary: #38bdf8;
+    --secondary-hover: #0284c7;
+    --secondary-glow: rgba(56, 189, 248, 0.45);
     
-    --accent: #A855F7;
-    --accent-hover: #9333EA;
-    --accent-glow: rgba(168, 85, 247, 0.45);
+    --accent: #8b5cf6;
+    --accent-hover: #7c3aed;
+    --accent-glow: rgba(139, 92, 246, 0.45);
     
     --success: #10B981;
     --warning: #F59E0B;
     --error: #EF4444;
 
-    /* Ultra-crisp high contrast white matter */
+    /* Ultra-crisp high contrast white matter & Maya slate text */
     --foreground: #FFFFFF;
-    --foreground-muted: #E2E8F0;
-    --foreground-subtle: #CBD5E1;
+    --foreground-muted: #94a3b8;
+    --foreground-subtle: #64748b;
   }
 
   /* ---------------- UNIQUE PRESENTATION THEMES ---------------- */
+  /* Theme 0: Aditya Maya Dark (Premier Midnight Orange) */
+  [data-theme="maya-aditya"] {
+    --background: #0e131f;
+    --surface: #161d2d;
+    --surface-elevated: #1b2337;
+    --surface-hover: #222b40;
+    --border: rgba(255, 255, 255, 0.08);
+    --border-highlight: #ff6b35;
+    --primary: #ff6b35;
+    --primary-hover: #f95721;
+    --primary-glow: rgba(255, 107, 53, 0.50);
+    --secondary: #38bdf8;
+    --accent: #8b5cf6;
+  }
+
   /* Theme 1: Cyber Cyan (Electric Tron) */
   [data-theme="cyber-cyan"] {
     --primary: #06B6D4;
@@ -122,7 +137,7 @@
   }
 
   html, body, #root {
-    background-color: #000000 !important;
+    background-color: var(--background, #0e131f) !important;
     color: #FFFFFF !important;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     overflow-x: hidden;
@@ -140,17 +155,83 @@
 }
 
 /* ============================================================== */
+/* ADITYA MAYA PORTAL THEME UTILITIES                             */
+/* ============================================================== */
+
+/* Signature Maya Module Card with Vibrant Orange Left Accent */
+.maya-module-card {
+  position: relative;
+  background-color: #141a27 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-left: 4px solid #ff6b35 !important;
+  border-radius: 1rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.maya-module-card:hover {
+  border-color: rgba(255, 107, 53, 0.5) !important;
+  border-left-color: #ff7a45 !important;
+  box-shadow: 0 6px 25px rgba(255, 107, 53, 0.18), 0 0 15px rgba(0, 0, 0, 0.6);
+  transform: translateY(-1px);
+}
+
+/* Signature Maya Primary Orange Pill Button */
+.maya-btn-primary {
+  background: linear-gradient(135deg, #ff6b35, #f95721) !important;
+  color: #ffffff !important;
+  font-weight: 700;
+  border-radius: 9999px !important;
+  box-shadow: 0 0 16px rgba(255, 107, 53, 0.35);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.maya-btn-primary:hover {
+  background: linear-gradient(135deg, #ff7a45, #fa622f) !important;
+  box-shadow: 0 0 24px rgba(255, 107, 53, 0.55);
+  transform: translateY(-1px);
+}
+
+/* Maya Status Metric Chips */
+.maya-chip-blue {
+  background-color: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  color: #38bdf8;
+}
+
+.maya-chip-purple {
+  background-color: rgba(139, 92, 246, 0.12);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  color: #a855f7;
+}
+
+.maya-chip-orange {
+  background-color: rgba(255, 107, 53, 0.12);
+  border: 1px solid rgba(255, 107, 53, 0.25);
+  color: #ff6b35;
+}
+
+/* ============================================================== */
 /* COLORFUL EDGE HIGHLIGHTERS (Luminous Neon on Pure Black)       */
 /* ============================================================== */
 
 /* Base Edge Highlight Card */
 .edge-card {
   position: relative;
-  background: #060609 !important;
+  background: var(--surface, #141a27) !important;
   border: 1px solid var(--border);
   border-radius: 1rem;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
+}
+
+/* Sunset Orange Edge Highlighter (Aditya Maya signature) */
+.edge-highlight-orange {
+  border-color: rgba(255, 107, 53, 0.60) !important;
+  box-shadow: 0 0 25px -2px rgba(255, 107, 53, 0.35), inset 0 0 15px -2px rgba(255, 107, 53, 0.15);
+}
+.edge-highlight-orange:hover, .hover\:edge-highlight-orange:hover {
+  border-color: rgba(255, 107, 53, 0.95) !important;
+  box-shadow: 0 0 35px 0px rgba(255, 107, 53, 0.55), inset 0 0 20px -2px rgba(255, 107, 53, 0.25);
+  transform: translateY(-2px);
 }
 
 /* Cyan Edge Highlighter */
@@ -239,16 +320,16 @@
   width: 100%;
 }
 
-/* Glassmorphism Panels on Pure Black */
+/* Glassmorphism Panels on Slate / Pure Black */
 .glass-panel {
-  background: rgba(7, 7, 10, 0.90);
+  background: var(--surface, rgba(20, 26, 39, 0.90));
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border);
 }
 
 .glass-card {
-  background: #060609;
+  background: var(--surface, #141a27);
   border: 1px solid var(--border);
   border-radius: 1rem;
   transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);

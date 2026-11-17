@@ -332,16 +332,16 @@ export const FlashcardsPage: React.FC = () => {
 
   return (
     <SidebarLayout>
-      <div className="p-4 sm:p-6 lg:p-8 max-w-4xl w-full mx-auto space-y-6 bg-black min-h-screen">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-4xl w-full mx-auto space-y-6 bg-[#0e131f] min-h-screen">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
           <div className="space-y-1">
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 border border-cyan-400/40 flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.35)]">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#ff6b35] to-[#38bdf8] border border-[#ff6b35]/40 flex items-center justify-center shadow-[0_0_15px_rgba(255,107,53,0.35)]">
                 <Layers className="w-5 h-5 text-white" />
               </div>
               <span>
-                Smart <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-indigo-300 to-purple-400 font-extrabold">Flashcards</span>
+                Smart <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#ff6b35] via-amber-300 to-[#38bdf8] font-extrabold">Flashcards</span>
               </span>
             </h1>
             <p className="text-xs sm:text-sm text-neutral-300">

@@ -72,14 +72,14 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
   const currentActiveIndex = navItems.findIndex(item => item.path === location.pathname);
 
   return (
-    <div className="min-h-screen flex bg-black relative overflow-x-hidden text-white">
+    <div className="min-h-screen flex bg-[#0e131f] relative overflow-x-hidden text-white">
       {/* Mobile Top Bar */}
-      <header className="lg:hidden fixed top-0 inset-x-0 z-30 h-14 bg-black/95 border-b border-white/10 backdrop-blur-md px-4 flex items-center justify-between shadow-md">
+      <header className="lg:hidden fixed top-0 inset-x-0 z-30 h-14 bg-[#0e131f]/95 border-b border-white/10 backdrop-blur-md px-4 flex items-center justify-between shadow-md">
         <div className="flex items-center gap-2.5">
           <button
             type="button"
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="p-2 rounded-xl bg-[#0a0a0f] border border-white/10 hover:bg-[#161622] text-white transition-colors cursor-pointer"
+            className="p-2 rounded-xl bg-[#141a27] border border-white/10 hover:bg-[#1b2337] text-white transition-colors cursor-pointer"
             aria-label={mobileOpen ? 'Close navigation' : 'Open navigation'}
             aria-expanded={mobileOpen}
           >
@@ -87,14 +87,14 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
           </button>
           <div className="flex items-center gap-1.5">
             <span className="font-bold text-sm tracking-tight text-white flex items-center gap-1">
-              Snap2Learn<span className="text-cyan-400 font-extrabold ml-0.5">AI</span>
+              Snap2Learn<span className="text-[#ff6b35] font-extrabold ml-0.5">AI</span>
             </span>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <ThemeSelector compact={true} />
           <AutosaveIndicator compact />
-          <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 text-[10px] font-semibold border border-emerald-500/30 shadow-[0_0_8px_rgba(16,185,129,0.25)]">
+          <span className="px-2 py-0.5 rounded-full bg-[#ff6b35]/15 text-[#ff6b35] text-[10px] font-semibold border border-[#ff6b35]/30 shadow-[0_0_8px_rgba(255,107,53,0.25)]">
             Verified
           </span>
         </div>
@@ -111,7 +111,7 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
 
       {/* Sidebar Navigation Drawer */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] lg:w-64 bg-black border-r border-white/10 flex flex-col justify-between transition-transform duration-250 ease-out lg:translate-x-0 ${mobileOpen
+        className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] lg:w-64 bg-[#0e131f] border-r border-[#1e2638] flex flex-col justify-between transition-transform duration-250 ease-out lg:translate-x-0 ${mobileOpen
             ? 'translate-x-0 shadow-2xl shadow-black'
             : '-translate-x-full lg:translate-x-0 pointer-events-none lg:pointer-events-auto'
           }`}
@@ -121,14 +121,14 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
           {/* Mobile Drawer Top Bar with dedicated Close Button */}
           <div className="flex lg:hidden items-center justify-between px-4 h-14 border-b border-white/10 shrink-0">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 border border-cyan-400/40 flex items-center justify-center shadow-[0_0_12px_rgba(6,182,212,0.35)]">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#ff6b35] to-[#38bdf8] border border-[#ff6b35]/40 flex items-center justify-center shadow-[0_0_12px_rgba(255,107,53,0.35)]">
                 <BookOpen className="w-4 h-4 text-white" />
               </div>
               <div>
                 <span className="font-bold text-sm tracking-tight text-white">
-                  Snap2Learn<span className="text-cyan-400 ml-0.5">AI</span>
+                  Snap2Learn<span className="text-[#ff6b35] ml-0.5">AI</span>
                 </span>
-                <p className="text-[9px] text-neutral-400 font-medium">CSE-AIML Workspace</p>
+                <p className="text-[9px] text-[#94a3b8] font-medium">Aditya Maya • CSE-AIML</p>
               </div>
             </div>
             <button
@@ -142,22 +142,22 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
           </div>
 
           {/* Desktop Logo Brand Header */}
-          <div className="hidden lg:flex items-center justify-between px-5 h-18 border-b border-white/10 shrink-0 bg-black">
+          <div className="hidden lg:flex items-center justify-between px-5 h-18 border-b border-[#1e2638] shrink-0 bg-[#0e131f]">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 border border-cyan-400/50 flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.35)]">
-                <BookOpen className="w-4 h-4 text-white" />
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#ff6b35] to-[#38bdf8] border border-[#ff6b35]/50 flex items-center justify-center shadow-[0_0_15px_rgba(255,107,53,0.35)]">
+                <BookOpen className="w-5 h-5 text-white" />
               </div>
               <div>
                 <span className="font-bold text-base tracking-tight text-white flex items-center">
-                  Snap2Learn<span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 ml-1 font-extrabold">AI</span>
+                  Snap2Learn<span className="text-[#ff6b35] ml-1 font-extrabold">AI</span>
                 </span>
-                <p className="text-[10px] text-neutral-400 font-medium">CSE-AIML Workspace</p>
+                <p className="text-[10px] text-[#94a3b8] font-medium">Aditya Maya • CSE-AIML</p>
               </div>
             </div>
             <ThemeSelector compact={true} />
           </div>
 
-          {/* Quick Action: Scan New Note with radiant edge glow */}
+          {/* Quick Action: Scan New Note with vibrant orange pill styling */}
           <div className="px-4 mt-4 shrink-0">
             <button
               type="button"
@@ -165,9 +165,9 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
                 navigate('/scanner');
                 setMobileOpen(false);
               }}
-              className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-cyan-500 via-indigo-600 to-purple-600 hover:from-cyan-400 hover:via-indigo-500 hover:to-purple-500 text-white text-xs font-semibold shadow-[0_0_18px_rgba(6,182,212,0.35)] border border-cyan-400/40 hover:border-cyan-300 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+              className="w-full py-2.5 px-3 rounded-full bg-gradient-to-r from-[#ff6b35] to-[#f95721] hover:from-[#ff7a45] hover:to-[#fa622f] text-white text-xs font-bold shadow-[0_0_18px_rgba(255,107,53,0.35)] border border-[#ff6b35]/50 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
             >
-              <Scan className="w-4 h-4 text-cyan-100 animate-pulse" />
+              <Scan className="w-4 h-4 text-white" />
               <span>Scan New Note</span>
             </button>
           </div>
@@ -177,9 +177,9 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
             <LineSidebar
               items={navItems}
               active={currentActiveIndex !== -1 ? currentActiveIndex : 0}
-              accentColor="#38bdf8"
+              accentColor="#ff6b35"
               textColor="#D1D5DB"
-              markerColor="#3b82f6"
+              markerColor="#ff6b35"
               showIndex={true}
               showMarker={true}
               proximityRadius={90}
@@ -204,28 +204,28 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
         </div>
 
         {/* Theme Selector Widget in Sidebar */}
-        <div className="px-4 py-2 border-t border-white/10 bg-black">
+        <div className="px-4 py-2 border-t border-[#1e2638] bg-[#0e131f]">
           <ThemeSelector compact={false} />
         </div>
 
         {/* Autosave Sync Status Badge */}
-        <div className="px-4 py-2.5 border-t border-white/10 bg-black flex items-center justify-between">
-          <span className="text-[10px] text-neutral-300 font-medium">Auto-Save Sync</span>
+        <div className="px-4 py-2.5 border-t border-[#1e2638] bg-[#0e131f] flex items-center justify-between">
+          <span className="text-[10px] text-[#94a3b8] font-medium">Maya Cloud Sync</span>
           <AutosaveIndicator compact={true} />
         </div>
 
         {/* User Card & Logout Footer */}
-        <div className="p-4 border-t border-white/10 bg-black shrink-0">
+        <div className="p-4 border-t border-[#1e2638] bg-[#0e131f] shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5 overflow-hidden">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-500 via-indigo-500 to-purple-600 p-[1.5px] shrink-0 shadow-[0_0_10px_rgba(99,102,241,0.4)]">
-                <div className="w-full h-full rounded-full bg-[#0a0a0f] flex items-center justify-center text-cyan-300 font-bold text-xs">
-                  {user?.displayName ? user.displayName.charAt(0).toUpperCase() : 'S'}
+              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#ff6b35] via-[#38bdf8] to-[#8b5cf6] p-[2px] shrink-0 shadow-[0_0_12px_rgba(255,107,53,0.35)]">
+                <div className="w-full h-full rounded-full bg-[#141a27] flex items-center justify-center text-white font-bold text-xs">
+                  {user?.displayName ? user.displayName.charAt(0).toUpperCase() : 'Y'}
                 </div>
               </div>
               <div className="truncate">
-                <p className="text-xs font-semibold text-white truncate">{user?.displayName || 'Student'}</p>
-                <p className="text-[10px] text-neutral-300 truncate">{user?.collegeBranch || 'CSE-AIML'}</p>
+                <p className="text-xs font-bold text-white truncate">{user?.displayName || 'CHOPPERLA YASWANTH KUMAR RAJU'}</p>
+                <p className="text-[10px] text-[#94a3b8] font-mono truncate">{user?.collegeBranch || '26811AI216 • CSE (AI & ML)'}</p>
               </div>
             </div>
             <button
@@ -244,7 +244,7 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 lg:pl-64 pt-14 lg:pt-0 min-h-screen bg-black flex flex-col w-full min-w-0 overflow-x-hidden">
+      <main className="flex-1 lg:pl-64 pt-14 lg:pt-0 min-h-screen bg-[#0e131f] flex flex-col w-full min-w-0 overflow-x-hidden">
         {children}
       </main>
     </div>

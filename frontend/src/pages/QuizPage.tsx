@@ -276,18 +276,18 @@ export const QuizPage: React.FC = () => {
 
   return (
     <SidebarLayout>
-      <div className="p-4 sm:p-6 lg:p-8 max-w-4xl w-full mx-auto space-y-6 bg-black min-h-screen">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-4xl w-full mx-auto space-y-6 bg-[#0e131f] min-h-screen">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/10">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-400/30">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#ff6b35]/15 text-[#ff6b35] border border-[#ff6b35]/30">
                 {subject}
               </span>
               <span className="text-xs text-neutral-300">{topic}</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2">
-              <Award className="w-6 h-6 text-cyan-400" />
+              <Award className="w-6 h-6 text-[#ff6b35]" />
               <span>AI Quiz Arena</span>
             </h1>
           </div>
@@ -539,8 +539,8 @@ export const QuizPage: React.FC = () => {
                 </button>
               </div>
             ) : (
-              /* Question Card on Solid Pure Black with Radiant Edge Glow */
-              <div className="p-6 sm:p-8 space-y-6 rounded-2xl bg-[#060609] border border-cyan-500/35 shadow-[0_0_25px_rgba(6,182,212,0.18)]">
+              /* Question Card on Themed Surface with Radiant Glow */
+              <div className="p-6 sm:p-8 space-y-6 rounded-2xl bg-surface border border-primary/35 shadow-[0_0_25px_var(--primary-glow)]">
                 <div className="flex items-center justify-between">
                   <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-400/30">
                     {currentQ.topic_tag}
@@ -638,21 +638,21 @@ export const QuizPage: React.FC = () => {
           const perfStatus = getQuizPerformanceStatus(submitResult.score_percentage);
           return (
             <div className="space-y-6">
-              {/* Score Summary Banner on Solid Pure Black with Colored Edge Highlighters */}
+              {/* Score Summary Banner with Dynamic Edge Highlighting */}
               <div
-                className={`p-6 sm:p-8 text-center rounded-3xl bg-[#060609] border-2 transition-all shadow-2xl ${
+                className={`p-6 sm:p-8 text-center rounded-3xl bg-surface border-2 transition-all shadow-2xl ${
                   perfStatus.status === 'EXCELLENT'
                     ? 'border-emerald-500/60 shadow-[0_0_40px_rgba(16,185,129,0.35)]'
                     : perfStatus.status === 'GOOD'
-                    ? 'border-indigo-500/60 shadow-[0_0_40px_rgba(99,102,241,0.35)]'
+                    ? 'border-[#ff6b35]/60 shadow-[0_0_40px_rgba(255,107,53,0.35)]'
                     : 'border-amber-500/60 shadow-[0_0_40px_rgba(245,158,11,0.35)]'
                 }`}
               >
-                <div className="inline-flex p-3.5 rounded-2xl bg-black border border-white/20 mb-3 shadow-[0_0_15px_rgba(0,0,0,0.5)]">
+                <div className="inline-flex p-3.5 rounded-2xl bg-surface-elevated border border-border mb-3 shadow-[0_0_15px_rgba(0,0,0,0.5)]">
                   {perfStatus.status === 'EXCELLENT' ? (
                     <Award className="w-9 h-9 text-emerald-400 drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
                   ) : perfStatus.status === 'GOOD' ? (
-                    <CheckCircle2 className="w-9 h-9 text-indigo-400 drop-shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
+                    <CheckCircle2 className="w-9 h-9 text-[#ff6b35] drop-shadow-[0_0_10px_rgba(255,107,53,0.5)]" />
                   ) : (
                     <AlertTriangle className="w-9 h-9 text-amber-400 drop-shadow-[0_0_10px_rgba(245,158,11,0.5)]" />
                   )}
@@ -670,19 +670,19 @@ export const QuizPage: React.FC = () => {
                 </p>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-lg mx-auto mb-6">
-                  <div className="p-3.5 rounded-2xl bg-black border border-cyan-500/40 shadow-[0_0_12px_rgba(6,182,212,0.2)]">
+                  <div className="p-3.5 rounded-2xl bg-surface-elevated border border-cyan-500/40 shadow-[0_0_12px_rgba(6,182,212,0.2)]">
                     <span className="text-[10px] text-cyan-300 font-semibold block">Score</span>
                     <span className="text-xl font-extrabold text-white">
                       {submitResult.correct_count} / {submitResult.total_questions}
                     </span>
                   </div>
-                  <div className="p-3.5 rounded-2xl bg-black border border-purple-500/40 shadow-[0_0_12px_rgba(168,85,247,0.2)]">
+                  <div className="p-3.5 rounded-2xl bg-surface-elevated border border-purple-500/40 shadow-[0_0_12px_rgba(168,85,247,0.2)]">
                     <span className="text-[10px] text-purple-300 font-semibold block">Accuracy</span>
                     <span className="text-xl font-extrabold text-purple-400">
                       {submitResult.score_percentage}%
                     </span>
                   </div>
-                  <div className="p-3.5 rounded-2xl bg-black border border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.2)]">
+                  <div className="p-3.5 rounded-2xl bg-surface-elevated border border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.2)]">
                     <span className="text-[10px] text-emerald-300 font-semibold block">Status</span>
                     <span
                       className={`text-xl font-extrabold ${perfStatus.textColor}`}
@@ -690,8 +690,8 @@ export const QuizPage: React.FC = () => {
                       {perfStatus.label}
                     </span>
                   </div>
-                  <div className="p-3.5 rounded-2xl bg-black border border-amber-500/40 shadow-[0_0_12px_rgba(245,158,11,0.2)]">
-                    <span className="text-[10px] text-amber-300 font-semibold block">Time Taken</span>
+                  <div className="p-3.5 rounded-2xl bg-surface-elevated border border-[#ff6b35]/40 shadow-[0_0_12px_rgba(255,107,53,0.2)]">
+                    <span className="text-[10px] text-[#ff6b35] font-semibold block">Time Taken</span>
                     <span className="text-xl font-extrabold text-white">
                       {formatQuizTime(submitResult.time_taken_seconds)}
                     </span>
