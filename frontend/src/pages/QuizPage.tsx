@@ -554,7 +554,7 @@ export const QuizPage: React.FC = () => {
                   <MathRenderer content={currentQ.question} />
                 </h2>
 
-                {/* 4 Choices */}
+                {/* 4 Choices with Colored Edge Highlighters */}
                 <div className="space-y-3">
                   {currentQ.options.map((opt, optIdx) => {
                     const isSelected = selectedAnswers[currentQ.id] === optIdx;
@@ -564,17 +564,17 @@ export const QuizPage: React.FC = () => {
                         key={optIdx}
                         type="button"
                         onClick={() => handleSelectOption(currentQ.id, optIdx)}
-                        className={`w-full p-4 rounded-xl border text-left transition-all flex items-center gap-3.5 ${
+                        className={`w-full p-4 rounded-xl border text-left transition-all flex items-center gap-3.5 cursor-pointer ${
                           isSelected
-                            ? 'bg-primary/20 border-primary text-white shadow-md glow-primary'
-                            : 'bg-surface border-border text-foreground-muted hover:border-border-highlight hover:text-foreground'
+                            ? 'bg-cyan-500/20 border-2 border-cyan-400 text-white shadow-[0_0_20px_rgba(6,182,212,0.35)]'
+                            : 'bg-surface border-indigo-500/20 text-foreground-muted hover:border-cyan-400/50 hover:text-cyan-200 hover:shadow-[0_0_14px_rgba(6,182,212,0.15)]'
                         }`}
                       >
                         <span
-                          className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
+                          className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 transition-colors ${
                             isSelected
-                              ? 'bg-primary text-white'
-                              : 'bg-surface-elevated text-foreground-muted border border-border'
+                              ? 'bg-gradient-to-tr from-cyan-500 to-indigo-600 text-white shadow-[0_0_10px_rgba(6,182,212,0.4)]'
+                              : 'bg-[#0d1322] text-foreground-muted border border-border'
                           }`}
                         >
                           {optionLetters[optIdx]}
@@ -638,61 +638,61 @@ export const QuizPage: React.FC = () => {
           const perfStatus = getQuizPerformanceStatus(submitResult.score_percentage);
           return (
             <div className="space-y-6">
-              {/* Score Summary Banner */}
+              {/* Score Summary Banner with Colored Edge Highlighters */}
               <div
-                className={`glass-card p-6 sm:p-8 text-center border-2 ${
+                className={`p-6 sm:p-8 text-center rounded-3xl bg-[#0f172a] border-2 transition-all shadow-2xl ${
                   perfStatus.status === 'EXCELLENT'
-                    ? 'border-emerald-500/50'
+                    ? 'border-emerald-500/60 shadow-[0_0_40px_rgba(16,185,129,0.35)]'
                     : perfStatus.status === 'GOOD'
-                    ? 'border-indigo-500/50'
-                    : 'border-amber-500/50'
+                    ? 'border-indigo-500/60 shadow-[0_0_40px_rgba(99,102,241,0.35)]'
+                    : 'border-amber-500/60 shadow-[0_0_40px_rgba(245,158,11,0.35)]'
                 }`}
               >
-                <div className="inline-flex p-3 rounded-full bg-surface-elevated mb-3">
+                <div className="inline-flex p-3.5 rounded-2xl bg-[#0d1322] border border-border mb-3 shadow-[0_0_15px_rgba(0,0,0,0.5)]">
                   {perfStatus.status === 'EXCELLENT' ? (
-                    <Award className="w-8 h-8 text-emerald-400" />
+                    <Award className="w-9 h-9 text-emerald-400 drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
                   ) : perfStatus.status === 'GOOD' ? (
-                    <CheckCircle2 className="w-8 h-8 text-indigo-400" />
+                    <CheckCircle2 className="w-9 h-9 text-indigo-400 drop-shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
                   ) : (
-                    <AlertTriangle className="w-8 h-8 text-amber-400" />
+                    <AlertTriangle className="w-9 h-9 text-amber-400 drop-shadow-[0_0_10px_rgba(245,158,11,0.5)]" />
                   )}
                 </div>
 
-                <h2 className="text-2xl sm:text-3xl font-extrabold text-foreground mb-1">
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-white mb-1">
                   {perfStatus.status === 'EXCELLENT'
                     ? 'Outstanding! Mastery Achieved! 🎉'
                     : perfStatus.status === 'GOOD'
                     ? 'Great Job! Good Understanding! 👍'
                     : 'Keep Practicing! Review Required 📚'}
                 </h2>
-                <p className="text-xs text-foreground-muted mb-6">
+                <p className="text-xs text-cyan-200/70 mb-6">
                   {submitResult.revision_recommendation}
                 </p>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-lg mx-auto mb-6">
-                  <div className="p-3 rounded-xl bg-surface border border-border">
-                    <span className="text-[10px] text-foreground-muted block">Score</span>
-                    <span className="text-xl font-extrabold text-foreground">
+                  <div className="p-3.5 rounded-2xl bg-[#0d1322] border border-cyan-500/35 shadow-[0_0_12px_rgba(6,182,212,0.15)]">
+                    <span className="text-[10px] text-cyan-300/70 font-semibold block">Score</span>
+                    <span className="text-xl font-extrabold text-white">
                       {submitResult.correct_count} / {submitResult.total_questions}
                     </span>
                   </div>
-                  <div className="p-3 rounded-xl bg-surface border border-border">
-                    <span className="text-[10px] text-foreground-muted block">Accuracy</span>
-                    <span className="text-xl font-extrabold text-secondary">
+                  <div className="p-3.5 rounded-2xl bg-[#0d1322] border border-purple-500/35 shadow-[0_0_12px_rgba(168,85,247,0.15)]">
+                    <span className="text-[10px] text-purple-300/70 font-semibold block">Accuracy</span>
+                    <span className="text-xl font-extrabold text-purple-400">
                       {submitResult.score_percentage}%
                     </span>
                   </div>
-                  <div className="p-3 rounded-xl bg-surface border border-border">
-                    <span className="text-[10px] text-foreground-muted block">Status</span>
+                  <div className="p-3.5 rounded-2xl bg-[#0d1322] border border-emerald-500/35 shadow-[0_0_12px_rgba(16,185,129,0.15)]">
+                    <span className="text-[10px] text-emerald-300/70 font-semibold block">Status</span>
                     <span
                       className={`text-xl font-extrabold ${perfStatus.textColor}`}
                     >
                       {perfStatus.label}
                     </span>
                   </div>
-                  <div className="p-3 rounded-xl bg-surface border border-border">
-                    <span className="text-[10px] text-foreground-muted block">Time Taken</span>
-                    <span className="text-xl font-extrabold text-foreground">
+                  <div className="p-3.5 rounded-2xl bg-[#0d1322] border border-amber-500/35 shadow-[0_0_12px_rgba(245,158,11,0.15)]">
+                    <span className="text-[10px] text-amber-300/70 font-semibold block">Time Taken</span>
+                    <span className="text-xl font-extrabold text-white">
                       {formatQuizTime(submitResult.time_taken_seconds)}
                     </span>
                   </div>

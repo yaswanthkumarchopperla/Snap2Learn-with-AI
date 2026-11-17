@@ -13,7 +13,9 @@ import {
   LogOut,
   Menu,
   X,
-  ShieldAlert
+  ShieldAlert,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import LineSidebar from './LineSidebar';
@@ -28,6 +30,24 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isLightMode, setIsLightMode] = useState(() => {
+    return localStorage.getItem('snap2learn_theme') === 'light';
+  });
+
+  // Apply theme class to document root
+  useEffect(() => {
+    if (isLightMode) {
+      document.documentElement.classList.add('light');
+      localStorage.setItem('snap2learn_theme', 'light');
+    } else {
+      document.documentElement.classList.remove('light');
+      localStorage.setItem('snap2learn_theme', 'dark');
+    }
+  }, [isLightMode]);
+
+  const toggleTheme = () => {
+    setIsLightMode(!isLightMode);
+  };
 
   // Close mobile drawer on route change
   useEffect(() => {
@@ -71,28 +91,36 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
   const currentActiveIndex = navItems.findIndex(item => item.path === location.pathname);
 
   return (
-    <div className="min-h-screen flex bg-background relative overflow-x-hidden">
+    <div className="min-h-screen flex bg-background relative overflow-x-hidden text-foreground">
       {/* Mobile Top Bar */}
-      <header className="lg:hidden fixed top-0 inset-x-0 z-30 h-14 bg-[#060609]/95 border-b border-white/[0.08] backdrop-blur-md px-4 flex items-center justify-between">
+      <header className="lg:hidden fixed top-0 inset-x-0 z-30 h-14 bg-[#0d1322]/95 border-b border-indigo-500/20 backdrop-blur-md px-4 flex items-center justify-between shadow-md">
         <div className="flex items-center gap-2.5">
           <button
             type="button"
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="p-2 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] text-white transition-colors cursor-pointer"
+            className="p-2 rounded-xl bg-surface border border-border hover:bg-surface-hover text-foreground transition-colors cursor-pointer"
             aria-label={mobileOpen ? 'Close navigation' : 'Open navigation'}
             aria-expanded={mobileOpen}
           >
             {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
           <div className="flex items-center gap-1.5">
-            <span className="font-bold text-sm tracking-tight text-white">
-              Snap2Learn<span className="text-indigo-400 ml-0.5">AI</span>
+            <span className="font-bold text-sm tracking-tight text-white flex items-center gap-1">
+              Snap2Learn<span className="text-cyan-400 font-extrabold ml-0.5">AI</span>
             </span>
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="p-1.5 rounded-lg bg-surface border border-border text-foreground-muted hover:text-cyan-400 transition-colors"
+            title={isLightMode ? 'Switch to Midnight Dark' : 'Switch to Sunlight Mode'}
+          >
+            {isLightMode ? <Moon className="w-4 h-4 text-indigo-400" /> : <Sun className="w-4 h-4 text-amber-400" />}
+          </button>
           <AutosaveIndicator compact />
-          <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-semibold border border-emerald-500/20">
+          <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-semibold border border-emerald-500/30 shadow-[0_0_8px_rgba(16,185,129,0.25)]">
             Verified
           </span>
         </div>
@@ -109,24 +137,24 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
 
       {/* Sidebar Navigation Drawer */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] lg:w-64 bg-[#060609] border-r border-white/[0.08] flex flex-col justify-between transition-transform duration-250 ease-out lg:translate-x-0 ${mobileOpen
-            ? 'translate-x-0 shadow-2xl shadow-black/80'
+        className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] lg:w-64 bg-[#0d1322] border-r border-indigo-500/20 flex flex-col justify-between transition-transform duration-250 ease-out lg:translate-x-0 ${mobileOpen
+            ? 'translate-x-0 shadow-2xl shadow-indigo-950/80'
             : '-translate-x-full lg:translate-x-0 pointer-events-none lg:pointer-events-auto'
           }`}
         aria-label="Sidebar Navigation"
       >
         <div className="flex flex-col flex-1 min-h-0">
           {/* Mobile Drawer Top Bar with dedicated Close Button */}
-          <div className="flex lg:hidden items-center justify-between px-4 h-14 border-b border-white/[0.08] shrink-0">
+          <div className="flex lg:hidden items-center justify-between px-4 h-14 border-b border-indigo-500/20 shrink-0">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center">
-                <BookOpen className="w-4 h-4 text-indigo-400" />
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 border border-cyan-400/40 flex items-center justify-center shadow-[0_0_12px_rgba(6,182,212,0.35)]">
+                <BookOpen className="w-4 h-4 text-white" />
               </div>
               <div>
                 <span className="font-bold text-sm tracking-tight text-white">
-                  Snap2Learn<span className="text-indigo-400 ml-0.5">AI</span>
+                  Snap2Learn<span className="text-cyan-400 ml-0.5">AI</span>
                 </span>
-                <p className="text-[9px] text-neutral-400 font-medium">CSE-AIML Workspace</p>
+                <p className="text-[9px] text-cyan-300/70 font-medium">CSE-AIML Workspace</p>
               </div>
             </div>
             <button
@@ -140,19 +168,30 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
           </div>
 
           {/* Desktop Logo Brand Header */}
-          <div className="hidden lg:flex items-center gap-3 px-6 h-18 border-b border-white/[0.08] shrink-0">
-            <div className="w-9 h-9 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center shadow-inner">
-              <BookOpen className="w-4 h-4 text-indigo-400" />
+          <div className="hidden lg:flex items-center justify-between px-5 h-18 border-b border-indigo-500/20 shrink-0 bg-[#0a0f1c]/70">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 border border-cyan-400/50 flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.35)]">
+                <BookOpen className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <span className="font-bold text-base tracking-tight text-white flex items-center">
+                  Snap2Learn<span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 ml-1 font-extrabold">AI</span>
+                </span>
+                <p className="text-[10px] text-cyan-300/70 font-medium">CSE-AIML Workspace</p>
+              </div>
             </div>
-            <div>
-              <span className="font-bold text-base tracking-tight text-white">
-                Snap2Learn<span className="text-indigo-400 ml-1">AI</span>
-              </span>
-              <p className="text-[10px] text-neutral-400 font-medium">CSE-AIML Workspace</p>
-            </div>
+            {/* Theme Toggle Button */}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="p-1.5 rounded-xl bg-surface border border-border text-foreground-muted hover:text-amber-400 transition-colors shadow-xs"
+              title={isLightMode ? 'Switch to Midnight Dark' : 'Switch to Sunlight Mode'}
+            >
+              {isLightMode ? <Moon className="w-4 h-4 text-indigo-400" /> : <Sun className="w-4 h-4 text-amber-400" />}
+            </button>
           </div>
 
-          {/* Quick Action: Scan New Note */}
+          {/* Quick Action: Scan New Note with radiant edge glow */}
           <div className="px-4 mt-4 shrink-0">
             <button
               type="button"
@@ -160,9 +199,9 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
                 navigate('/scanner');
                 setMobileOpen(false);
               }}
-              className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-indigo-500/90 to-purple-500/90 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-semibold shadow-lg shadow-indigo-500/20 border border-white/10 hover:border-white/20 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+              className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-cyan-500 via-indigo-600 to-purple-600 hover:from-cyan-400 hover:via-indigo-500 hover:to-purple-500 text-white text-xs font-semibold shadow-[0_0_18px_rgba(6,182,212,0.35)] border border-cyan-400/40 hover:border-cyan-300 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
             >
-              <Scan className="w-4 h-4" />
+              <Scan className="w-4 h-4 text-cyan-100 animate-pulse" />
               <span>Scan New Note</span>
             </button>
           </div>
@@ -172,9 +211,9 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
             <LineSidebar
               items={navItems}
               active={currentActiveIndex !== -1 ? currentActiveIndex : 0}
-              accentColor="#818cf8"
-              textColor="#9ca3af"
-              markerColor="#3f3f46"
+              accentColor="#38bdf8"
+              textColor="#94a3b8"
+              markerColor="#3b82f6"
               showIndex={true}
               showMarker={true}
               proximityRadius={90}
@@ -199,21 +238,23 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
         </div>
 
         {/* Autosave Sync Status Badge */}
-        <div className="px-4 py-2.5 border-t border-white/[0.06] bg-[#07070b] flex items-center justify-between">
+        <div className="px-4 py-2.5 border-t border-indigo-500/20 bg-[#0a0f1c] flex items-center justify-between">
           <span className="text-[10px] text-neutral-400 font-medium">Auto-Save Sync</span>
           <AutosaveIndicator compact={true} />
         </div>
 
         {/* User Card & Logout Footer */}
-        <div className="p-4 border-t border-white/[0.08] bg-[#09090e] shrink-0">
+        <div className="p-4 border-t border-indigo-500/20 bg-[#0a0f1c] shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5 overflow-hidden">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-500 to-indigo-500 flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-sm">
-                {user?.displayName ? user.displayName.charAt(0).toUpperCase() : 'S'}
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-500 via-indigo-500 to-purple-600 p-[1.5px] shrink-0 shadow-[0_0_10px_rgba(99,102,241,0.4)]">
+                <div className="w-full h-full rounded-full bg-[#0d1322] flex items-center justify-center text-cyan-300 font-bold text-xs">
+                  {user?.displayName ? user.displayName.charAt(0).toUpperCase() : 'S'}
+                </div>
               </div>
               <div className="truncate">
                 <p className="text-xs font-semibold text-white truncate">{user?.displayName || 'Student'}</p>
-                <p className="text-[10px] text-neutral-400 truncate">{user?.collegeBranch || 'CSE-AIML'}</p>
+                <p className="text-[10px] text-cyan-300/70 truncate">{user?.collegeBranch || 'CSE-AIML'}</p>
               </div>
             </div>
             <button
@@ -222,7 +263,7 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
                 logout();
                 navigate('/auth');
               }}
-              className="p-1.5 rounded-lg text-neutral-400 hover:text-red-400 hover:bg-white/[0.06] transition-colors cursor-pointer"
+              className="p-1.5 rounded-lg text-neutral-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
               title="Sign out"
             >
               <LogOut className="w-4 h-4" />

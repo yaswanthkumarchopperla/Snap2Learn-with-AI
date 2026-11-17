@@ -81,9 +81,22 @@
   flex: 1;
 }
 
-.line-sidebar__badge {
-  margin-left: auto;
-  margin-right: 0.75rem;
+.line-sidebar__item[aria-current="true"] .line-sidebar__label {
+  color: #38bdf8;
+  font-weight: 700;
+  text-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+}
+
+.line-sidebar__item[aria-current="true"] .line-sidebar__marker {
+  background-color: #38bdf8;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.8);
+  height: 2px;
+}
+
+.line-sidebar__item[aria-current="true"] .line-sidebar__icon {
+  color: #38bdf8;
+  opacity: 1;
+  filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.5));
 }
 
 .line-sidebar__marker {
