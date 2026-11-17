@@ -4,8 +4,6 @@ import {
   User,
   Globe2,
   Sliders,
-  Moon,
-  Sun,
   Trash2,
   ShieldCheck,
   Check,
@@ -13,7 +11,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { SidebarLayout } from '../components/Sidebar';
-import { useTheme } from '../contexts/ThemeContext';
+import { ThemeSelector } from '../components/ThemeSelector';
 import { useAuth } from '../contexts/AuthContext';
 import { useAutosave } from '../contexts/AutosaveContext';
 import { AutosaveIndicator } from '../components/AutosaveIndicator';
@@ -21,7 +19,6 @@ import { api } from '../services/api';
 import { Language, ExplanationMode, Difficulty } from '../types';
 
 export const SettingsPage: React.FC = () => {
-  const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
   const { triggerAutosave } = useAutosave();
 
@@ -233,30 +230,20 @@ export const SettingsPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Theme & Display */}
-          <div className="glass-card p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-bold text-foreground mb-0.5">Application Theme</h3>
-              <p className="text-xs text-foreground-muted">Toggle between dark and light appearance</p>
+          {/* Unique Presentation Themes */}
+          <div className="p-5 sm:p-6 rounded-2xl bg-[#060609] border border-white/10 space-y-4 shadow-[0_0_20px_rgba(0,0,0,0.5)]">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold text-white mb-0.5 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-cyan-400" />
+                  <span>Unique Presentation Themes</span>
+                </h3>
+                <p className="text-xs text-neutral-300">
+                  Select your favorite vibrant edge highlighter presentation theme on solid pitch-black background
+                </p>
+              </div>
+              <ThemeSelector compact={false} />
             </div>
-
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="self-stretch sm:self-auto px-4 py-2 rounded-xl bg-surface border border-border hover:bg-surface-hover text-foreground text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer"
-            >
-              {theme === 'dark' ? (
-                <>
-                  <Moon className="w-4 h-4 text-secondary" />
-                  <span>Dark Mode (Active)</span>
-                </>
-              ) : (
-                <>
-                  <Sun className="w-4 h-4 text-amber-400" />
-                  <span>Light Mode (Active)</span>
-                </>
-              )}
-            </button>
           </div>
         </div>
 

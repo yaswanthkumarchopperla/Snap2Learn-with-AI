@@ -128,17 +128,19 @@ export const NotesPage: React.FC = () => {
 
   return (
     <SidebarLayout>
-      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6 bg-black min-h-screen">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.08]">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
           <div className="space-y-1">
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center">
-                <BookOpen className="w-4 h-4 text-indigo-400" />
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 border border-cyan-400/40 flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.35)]">
+                <BookOpen className="w-5 h-5 text-white" />
               </div>
-              <span>My Notes Repository</span>
+              <span>
+                My Notes <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-indigo-300 to-purple-400 font-extrabold">Repository</span>
+              </span>
             </h1>
-            <p className="text-xs sm:text-sm text-neutral-400">
+            <p className="text-xs sm:text-sm text-neutral-300">
               Your saved lecture transcriptions, OCR extractions, and confirmed notes.
             </p>
           </div>
@@ -147,7 +149,7 @@ export const NotesPage: React.FC = () => {
             <AutosaveIndicator compact={false} />
             <button
               onClick={() => navigate('/scanner')}
-              className="px-4 py-2 rounded-full bg-white text-black hover:bg-neutral-200 text-xs font-semibold shadow-md transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:opacity-90 text-white text-xs font-semibold shadow-[0_0_15px_rgba(6,182,212,0.3)] transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
             >
               <Plus className="w-4 h-4" />
               <span>Scan New Note</span>
@@ -156,7 +158,7 @@ export const NotesPage: React.FC = () => {
         </div>
 
         {/* Filter & Search Bar */}
-        <div className="bg-[#0c0c12] p-3 rounded-2xl border border-white/[0.08] flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="bg-[#060609] p-3 rounded-2xl border border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-[0_0_20px_rgba(0,0,0,0.5)]">
           <div className="relative w-full sm:w-80">
             <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
@@ -164,7 +166,7 @@ export const NotesPage: React.FC = () => {
               placeholder="Search by title, formula, or concept..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white text-xs focus:outline-none focus:border-white/20"
+              className="w-full pl-9 pr-3 py-2 rounded-xl bg-black border border-white/20 text-white text-xs focus:outline-none focus:border-cyan-400"
             />
           </div>
 
@@ -175,8 +177,8 @@ export const NotesPage: React.FC = () => {
                 onClick={() => setSelectedSubject(subj)}
                 className={`px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
                   selectedSubject === subj
-                    ? 'bg-white text-black font-semibold shadow-sm'
-                    : 'bg-white/[0.04] border border-white/[0.08] text-neutral-400 hover:text-white hover:border-white/20'
+                    ? 'bg-gradient-to-r from-cyan-500 to-indigo-600 text-white font-semibold shadow-[0_0_12px_rgba(6,182,212,0.3)] border border-cyan-400/50'
+                    : 'bg-black border border-white/20 text-neutral-300 hover:text-white hover:border-cyan-400/50'
                 }`}
               >
                 {subj}
@@ -187,15 +189,15 @@ export const NotesPage: React.FC = () => {
 
         {/* Two-Column Explorer: Note List (5 cols) vs Note Details (7 cols) */}
         {loading ? (
-          <div className="glass-card p-12 text-center flex flex-col items-center justify-center gap-2">
-            <RefreshCw className="w-8 h-8 text-secondary animate-spin" />
-            <span className="text-xs text-foreground-muted">Loading repository notes...</span>
+          <div className="p-12 text-center flex flex-col items-center justify-center gap-2 rounded-2xl bg-[#060609] border border-white/10">
+            <RefreshCw className="w-8 h-8 text-cyan-400 animate-spin" />
+            <span className="text-xs text-neutral-300">Loading repository notes...</span>
           </div>
         ) : filteredNotes.length === 0 ? (
-          <div className="glass-card p-12 text-center">
-            <BookOpen className="w-10 h-10 text-foreground-muted mx-auto mb-3 opacity-40" />
-            <h3 className="font-bold text-foreground text-sm mb-1">No notes match your criteria</h3>
-            <p className="text-xs text-foreground-muted mb-4">
+          <div className="p-12 text-center rounded-2xl bg-[#060609] border border-white/10">
+            <BookOpen className="w-10 h-10 text-cyan-400 mx-auto mb-3 opacity-40" />
+            <h3 className="font-bold text-white text-sm mb-1">No notes match your criteria</h3>
+            <p className="text-xs text-neutral-300 mb-4">
               Try adjusting your search query or scan a new note.
             </p>
           </div>
@@ -211,12 +213,12 @@ export const NotesPage: React.FC = () => {
                     onClick={() => setSelectedNote(note)}
                     className={`p-4 rounded-2xl border cursor-pointer transition-all ${
                       isSelected
-                        ? 'bg-surface-elevated border-secondary shadow-md'
-                        : 'glass-card hover:border-border-highlight'
+                        ? 'bg-[#060609] border-2 border-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.25)]'
+                        : 'bg-black border border-white/15 hover:border-cyan-400/50'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2 mb-1.5">
-                      <h4 className="font-bold text-xs sm:text-sm text-foreground line-clamp-1">
+                      <h4 className="font-bold text-xs sm:text-sm text-white line-clamp-1">
                         {note.title}
                       </h4>
                       <button
@@ -246,7 +248,7 @@ export const NotesPage: React.FC = () => {
             {/* Right Column: Note Inspector & Action Center */}
             {selectedNote && (
               <div className="lg:col-span-7 space-y-4">
-                <div className="glass-card p-6 space-y-5">
+                <div className="p-6 space-y-5 rounded-2xl bg-[#060609] border border-white/10 shadow-[0_0_20px_rgba(0,0,0,0.5)]">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
                     <div className="space-y-1 flex-1">
                       <div className="flex items-center gap-2">

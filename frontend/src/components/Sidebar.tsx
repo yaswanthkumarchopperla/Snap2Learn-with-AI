@@ -13,13 +13,12 @@ import {
   LogOut,
   Menu,
   X,
-  ShieldAlert,
-  Sun,
-  Moon
+  ShieldAlert
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import LineSidebar from './LineSidebar';
 import { AutosaveIndicator } from './AutosaveIndicator';
+import { ThemeSelector } from './ThemeSelector';
 
 interface SidebarProps {
   children?: React.ReactNode;
@@ -30,24 +29,6 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [isLightMode, setIsLightMode] = useState(() => {
-    return localStorage.getItem('snap2learn_theme') === 'light';
-  });
-
-  // Apply theme class to document root
-  useEffect(() => {
-    if (isLightMode) {
-      document.documentElement.classList.add('light');
-      localStorage.setItem('snap2learn_theme', 'light');
-    } else {
-      document.documentElement.classList.remove('light');
-      localStorage.setItem('snap2learn_theme', 'dark');
-    }
-  }, [isLightMode]);
-
-  const toggleTheme = () => {
-    setIsLightMode(!isLightMode);
-  };
 
   // Close mobile drawer on route change
   useEffect(() => {
@@ -91,14 +72,14 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
   const currentActiveIndex = navItems.findIndex(item => item.path === location.pathname);
 
   return (
-    <div className="min-h-screen flex bg-background relative overflow-x-hidden text-foreground">
+    <div className="min-h-screen flex bg-black relative overflow-x-hidden text-white">
       {/* Mobile Top Bar */}
-      <header className="lg:hidden fixed top-0 inset-x-0 z-30 h-14 bg-[#0d1322]/95 border-b border-indigo-500/20 backdrop-blur-md px-4 flex items-center justify-between shadow-md">
+      <header className="lg:hidden fixed top-0 inset-x-0 z-30 h-14 bg-black/95 border-b border-white/10 backdrop-blur-md px-4 flex items-center justify-between shadow-md">
         <div className="flex items-center gap-2.5">
           <button
             type="button"
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="p-2 rounded-xl bg-surface border border-border hover:bg-surface-hover text-foreground transition-colors cursor-pointer"
+            className="p-2 rounded-xl bg-[#0a0a0f] border border-white/10 hover:bg-[#161622] text-white transition-colors cursor-pointer"
             aria-label={mobileOpen ? 'Close navigation' : 'Open navigation'}
             aria-expanded={mobileOpen}
           >
@@ -111,16 +92,9 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="p-1.5 rounded-lg bg-surface border border-border text-foreground-muted hover:text-cyan-400 transition-colors"
-            title={isLightMode ? 'Switch to Midnight Dark' : 'Switch to Sunlight Mode'}
-          >
-            {isLightMode ? <Moon className="w-4 h-4 text-indigo-400" /> : <Sun className="w-4 h-4 text-amber-400" />}
-          </button>
+          <ThemeSelector compact={true} />
           <AutosaveIndicator compact />
-          <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-semibold border border-emerald-500/30 shadow-[0_0_8px_rgba(16,185,129,0.25)]">
+          <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 text-[10px] font-semibold border border-emerald-500/30 shadow-[0_0_8px_rgba(16,185,129,0.25)]">
             Verified
           </span>
         </div>
@@ -129,7 +103,7 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
       {/* Mobile Backdrop Overlay */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 lg:hidden transition-opacity duration-200 animate-in fade-in"
+          className="fixed inset-0 bg-black/85 backdrop-blur-sm z-40 lg:hidden transition-opacity duration-200 animate-in fade-in"
           onClick={() => setMobileOpen(false)}
           aria-hidden="true"
         />
@@ -137,15 +111,15 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
 
       {/* Sidebar Navigation Drawer */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] lg:w-64 bg-[#0d1322] border-r border-indigo-500/20 flex flex-col justify-between transition-transform duration-250 ease-out lg:translate-x-0 ${mobileOpen
-            ? 'translate-x-0 shadow-2xl shadow-indigo-950/80'
+        className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] lg:w-64 bg-black border-r border-white/10 flex flex-col justify-between transition-transform duration-250 ease-out lg:translate-x-0 ${mobileOpen
+            ? 'translate-x-0 shadow-2xl shadow-black'
             : '-translate-x-full lg:translate-x-0 pointer-events-none lg:pointer-events-auto'
           }`}
         aria-label="Sidebar Navigation"
       >
         <div className="flex flex-col flex-1 min-h-0">
           {/* Mobile Drawer Top Bar with dedicated Close Button */}
-          <div className="flex lg:hidden items-center justify-between px-4 h-14 border-b border-indigo-500/20 shrink-0">
+          <div className="flex lg:hidden items-center justify-between px-4 h-14 border-b border-white/10 shrink-0">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 border border-cyan-400/40 flex items-center justify-center shadow-[0_0_12px_rgba(6,182,212,0.35)]">
                 <BookOpen className="w-4 h-4 text-white" />
@@ -154,13 +128,13 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
                 <span className="font-bold text-sm tracking-tight text-white">
                   Snap2Learn<span className="text-cyan-400 ml-0.5">AI</span>
                 </span>
-                <p className="text-[9px] text-cyan-300/70 font-medium">CSE-AIML Workspace</p>
+                <p className="text-[9px] text-neutral-400 font-medium">CSE-AIML Workspace</p>
               </div>
             </div>
             <button
               type="button"
               onClick={() => setMobileOpen(false)}
-              className="p-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] text-neutral-400 hover:text-white transition-colors cursor-pointer"
+              className="p-1.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-neutral-400 hover:text-white transition-colors cursor-pointer"
               aria-label="Close navigation menu"
             >
               <X className="w-4 h-4" />
@@ -168,7 +142,7 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
           </div>
 
           {/* Desktop Logo Brand Header */}
-          <div className="hidden lg:flex items-center justify-between px-5 h-18 border-b border-indigo-500/20 shrink-0 bg-[#0a0f1c]/70">
+          <div className="hidden lg:flex items-center justify-between px-5 h-18 border-b border-white/10 shrink-0 bg-black">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 border border-cyan-400/50 flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.35)]">
                 <BookOpen className="w-4 h-4 text-white" />
@@ -177,18 +151,10 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
                 <span className="font-bold text-base tracking-tight text-white flex items-center">
                   Snap2Learn<span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 ml-1 font-extrabold">AI</span>
                 </span>
-                <p className="text-[10px] text-cyan-300/70 font-medium">CSE-AIML Workspace</p>
+                <p className="text-[10px] text-neutral-400 font-medium">CSE-AIML Workspace</p>
               </div>
             </div>
-            {/* Theme Toggle Button */}
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="p-1.5 rounded-xl bg-surface border border-border text-foreground-muted hover:text-amber-400 transition-colors shadow-xs"
-              title={isLightMode ? 'Switch to Midnight Dark' : 'Switch to Sunlight Mode'}
-            >
-              {isLightMode ? <Moon className="w-4 h-4 text-indigo-400" /> : <Sun className="w-4 h-4 text-amber-400" />}
-            </button>
+            <ThemeSelector compact={true} />
           </div>
 
           {/* Quick Action: Scan New Note with radiant edge glow */}
@@ -212,7 +178,7 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
               items={navItems}
               active={currentActiveIndex !== -1 ? currentActiveIndex : 0}
               accentColor="#38bdf8"
-              textColor="#94a3b8"
+              textColor="#D1D5DB"
               markerColor="#3b82f6"
               showIndex={true}
               showMarker={true}
@@ -237,24 +203,29 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
           </div>
         </div>
 
+        {/* Theme Selector Widget in Sidebar */}
+        <div className="px-4 py-2 border-t border-white/10 bg-black">
+          <ThemeSelector compact={false} />
+        </div>
+
         {/* Autosave Sync Status Badge */}
-        <div className="px-4 py-2.5 border-t border-indigo-500/20 bg-[#0a0f1c] flex items-center justify-between">
-          <span className="text-[10px] text-neutral-400 font-medium">Auto-Save Sync</span>
+        <div className="px-4 py-2.5 border-t border-white/10 bg-black flex items-center justify-between">
+          <span className="text-[10px] text-neutral-300 font-medium">Auto-Save Sync</span>
           <AutosaveIndicator compact={true} />
         </div>
 
         {/* User Card & Logout Footer */}
-        <div className="p-4 border-t border-indigo-500/20 bg-[#0a0f1c] shrink-0">
+        <div className="p-4 border-t border-white/10 bg-black shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5 overflow-hidden">
               <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-500 via-indigo-500 to-purple-600 p-[1.5px] shrink-0 shadow-[0_0_10px_rgba(99,102,241,0.4)]">
-                <div className="w-full h-full rounded-full bg-[#0d1322] flex items-center justify-center text-cyan-300 font-bold text-xs">
+                <div className="w-full h-full rounded-full bg-[#0a0a0f] flex items-center justify-center text-cyan-300 font-bold text-xs">
                   {user?.displayName ? user.displayName.charAt(0).toUpperCase() : 'S'}
                 </div>
               </div>
               <div className="truncate">
                 <p className="text-xs font-semibold text-white truncate">{user?.displayName || 'Student'}</p>
-                <p className="text-[10px] text-cyan-300/70 truncate">{user?.collegeBranch || 'CSE-AIML'}</p>
+                <p className="text-[10px] text-neutral-300 truncate">{user?.collegeBranch || 'CSE-AIML'}</p>
               </div>
             </div>
             <button
@@ -273,7 +244,7 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 lg:pl-64 pt-14 lg:pt-0 min-h-screen flex flex-col w-full min-w-0 overflow-x-hidden">
+      <main className="flex-1 lg:pl-64 pt-14 lg:pt-0 min-h-screen bg-black flex flex-col w-full min-w-0 overflow-x-hidden">
         {children}
       </main>
     </div>

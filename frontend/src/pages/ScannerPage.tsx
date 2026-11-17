@@ -580,17 +580,19 @@ export const ScannerPage: React.FC = () => {
 
   return (
     <SidebarLayout>
-      <div className="p-4 sm:p-6 lg:p-8 max-w-6xl w-full mx-auto space-y-6">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-6xl w-full mx-auto space-y-6 bg-black min-h-screen">
         {/* Page Top Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.08]">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
           <div className="space-y-1">
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center">
-                <Camera className="w-4 h-4 text-indigo-400" />
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 border border-cyan-400/40 flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.35)]">
+                <Camera className="w-5 h-5 text-white" />
               </div>
-              <span>Smart Study Scanner</span>
+              <span>
+                Smart Study <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-indigo-300 to-purple-400 font-extrabold">Scanner</span>
+              </span>
             </h1>
-            <p className="text-xs sm:text-sm text-neutral-400">
+            <p className="text-xs sm:text-sm text-neutral-300">
               Complete 5-step learning workflow: Scan → Extract → Explain → Quiz → Score
             </p>
           </div>
@@ -601,18 +603,18 @@ export const ScannerPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowHistoryModal(!showHistoryModal)}
-                className="px-3.5 py-2 rounded-full bg-white/[0.05] border border-white/[0.1] text-white hover:bg-white/[0.1] text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer"
+                className="px-3.5 py-2 rounded-xl bg-black border border-white/20 text-white hover:border-cyan-400 text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer"
               >
-                <History className="w-3.5 h-3.5 text-indigo-400" />
+                <History className="w-3.5 h-3.5 text-cyan-400" />
                 <span>Recent Scans ({scanHistory.length})</span>
               </button>
             )}
             <button
               type="button"
               onClick={handleLoadSample}
-              className="px-3.5 py-2 rounded-full bg-white text-black hover:bg-neutral-200 text-xs font-semibold shadow-md transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:opacity-90 text-white text-xs font-semibold shadow-[0_0_15px_rgba(6,182,212,0.3)] transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
             >
-              <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+              <Sparkles className="w-3.5 h-3.5 text-white" />
               <span>Load Engineering Sample</span>
             </button>
           </div>
@@ -620,16 +622,16 @@ export const ScannerPage: React.FC = () => {
 
         {/* Recent Scans Revisit Drawer */}
         {showHistoryModal && (
-          <div className="bg-[#0c0c12] p-4 sm:p-5 rounded-2xl border border-white/[0.08] space-y-3 animate-in fade-in slide-in-from-top-2">
+          <div className="bg-[#060609] p-4 sm:p-5 rounded-2xl border border-white/10 space-y-3 animate-in fade-in slide-in-from-top-2 shadow-[0_0_20px_rgba(0,0,0,0.5)]">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <History className="w-4 h-4 text-secondary" />
-                <h3 className="text-sm font-bold text-foreground">Recent Scans History</h3>
+                <History className="w-4 h-4 text-cyan-400" />
+                <h3 className="text-sm font-bold text-white">Recent Scans History</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowHistoryModal(false)}
-                className="text-xs text-foreground-muted hover:text-foreground cursor-pointer"
+                className="text-xs text-neutral-400 hover:text-white cursor-pointer"
               >
                 Close ✕
               </button>
@@ -655,14 +657,14 @@ export const ScannerPage: React.FC = () => {
                     setShowHistoryModal(false);
                     goToStep(2);
                   }}
-                  className="p-3 rounded-xl bg-surface hover:bg-surface-elevated border border-border hover:border-secondary/50 cursor-pointer transition-all space-y-1.5"
+                  className="p-3 rounded-xl bg-black hover:bg-white/5 border border-white/15 hover:border-cyan-400/50 cursor-pointer transition-all space-y-1.5"
                 >
                   <div className="flex items-center justify-between text-[10px]">
-                    <span className="font-semibold text-secondary">{item.subject}</span>
-                    <span className="text-foreground-muted">{new Date(item.created_at).toLocaleDateString()}</span>
+                    <span className="font-semibold text-cyan-300">{item.subject}</span>
+                    <span className="text-neutral-400">{new Date(item.created_at).toLocaleDateString()}</span>
                   </div>
-                  <h4 className="text-xs font-bold text-foreground line-clamp-1">{item.topic || 'Untitled Scan'}</h4>
-                  <p className="text-[11px] text-foreground-muted line-clamp-2">{item.text}</p>
+                  <h4 className="text-xs font-bold text-white line-clamp-1">{item.topic || 'Untitled Scan'}</h4>
+                  <p className="text-[11px] text-neutral-300 line-clamp-2">{item.text}</p>
                 </div>
               ))}
             </div>
@@ -672,7 +674,7 @@ export const ScannerPage: React.FC = () => {
         {/* --------------------------------------------------------- */}
         {/* MODERN STEPPER: Desktop Horizontal / Mobile Compact       */}
         {/* --------------------------------------------------------- */}
-        <div className="glass-card p-4 sm:p-5">
+        <div className="p-4 sm:p-5 rounded-2xl bg-[#060609] border border-white/10 shadow-[0_0_20px_rgba(0,0,0,0.5)]">
           {/* Desktop Stepper */}
           <div className="hidden md:flex items-center justify-between relative">
             {STEPS.map((step, idx) => {

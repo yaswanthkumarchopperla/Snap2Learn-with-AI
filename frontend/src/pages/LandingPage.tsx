@@ -174,9 +174,9 @@ export const LandingPage: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-[#0b0f19] text-white font-sans antialiased selection:bg-cyan-500/30 selection:text-white">
+    <div className="min-h-screen bg-black text-white font-sans antialiased selection:bg-cyan-500/30 selection:text-white">
       {/* ---------------- NAVIGATION BAR ---------------- */}
-      <nav className="fixed top-0 inset-x-0 z-50 h-16 bg-[#0b0f19]/85 backdrop-blur-md border-b border-indigo-500/20 transition-all shadow-md">
+      <nav className="fixed top-0 inset-x-0 z-50 h-16 bg-black/90 backdrop-blur-md border-b border-white/10 transition-all shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">
           {/* Brand */}
           <div className="flex items-center gap-3">
@@ -227,7 +227,7 @@ export const LandingPage: React.FC = () => {
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 rounded-xl bg-surface border border-border text-neutral-300 hover:text-white cursor-pointer"
+            className="md:hidden p-2 rounded-xl bg-black border border-white/20 text-neutral-300 hover:text-white cursor-pointer"
             aria-label="Toggle menu"
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -236,7 +236,7 @@ export const LandingPage: React.FC = () => {
 
         {/* Mobile Dropdown */}
         {mobileMenuOpen && (
-          <div className="md:hidden bg-[#0d1322] border-b border-indigo-500/20 px-4 pt-3 pb-6 space-y-3">
+          <div className="md:hidden bg-black border-b border-white/10 px-4 pt-3 pb-6 space-y-3">
             <a
               href="#demo"
               onClick={() => setMobileMenuOpen(false)}
@@ -325,7 +325,7 @@ export const LandingPage: React.FC = () => {
             </button>
             <a
               href="#demo"
-              className="px-5 py-3 rounded-xl bg-[#0f172a] hover:bg-[#16223d] border border-cyan-400/30 text-cyan-200 text-xs font-semibold shadow-[0_0_15px_rgba(6,182,212,0.15)] transition-all flex items-center gap-2 cursor-pointer"
+              className="px-5 py-3 rounded-xl bg-black hover:bg-white/5 border border-cyan-400/30 text-cyan-200 text-xs font-semibold shadow-[0_0_15px_rgba(6,182,212,0.15)] transition-all flex items-center gap-2 cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
               <span>Try Live Interactive Demo Below</span>
@@ -338,7 +338,7 @@ export const LandingPage: React.FC = () => {
           {/* ============================================================= */}
           <div id="demo" className="pt-12 max-w-5xl mx-auto scroll-mt-24">
             <div className="p-1 rounded-3xl bg-gradient-to-r from-cyan-500/40 via-indigo-500/40 to-purple-500/40 shadow-[0_0_40px_rgba(6,182,212,0.25)]">
-              <div className="rounded-[22px] bg-[#0f172a] p-5 sm:p-7 space-y-6 text-left">
+              <div className="rounded-[22px] bg-[#060609] p-5 sm:p-7 space-y-6 text-left">
                 {/* Demo Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-indigo-500/20 pb-4">
                   <div>
@@ -424,8 +424,8 @@ export const LandingPage: React.FC = () => {
                         onClick={() => setDemoFlashcardFlipped(!demoFlashcardFlipped)}
                         className={`cursor-pointer rounded-2xl p-6 sm:p-8 border-2 transition-all duration-300 shadow-xl ${
                           !demoFlashcardFlipped
-                            ? 'border-emerald-400/60 bg-[#0d1322] shadow-[0_0_30px_rgba(16,185,129,0.25)] hover:border-emerald-300'
-                            : 'border-purple-400/60 bg-[#0d1322] shadow-[0_0_30px_rgba(168,85,247,0.25)] hover:border-purple-300'
+                            ? 'border-emerald-400/60 bg-black shadow-[0_0_30px_rgba(16,185,129,0.25)] hover:border-emerald-300'
+                            : 'border-purple-400/60 bg-black shadow-[0_0_30px_rgba(168,85,247,0.25)] hover:border-purple-300'
                         }`}
                       >
                         <div className="flex items-center justify-between mb-4">
@@ -450,7 +450,7 @@ export const LandingPage: React.FC = () => {
                           ) : (
                             <div>
                               <span className="text-[11px] font-mono text-purple-400 font-bold block mb-2">ANSWER & FORMULA</span>
-                              <div className="p-3 rounded-xl bg-black/60 border border-purple-500/40 inline-block text-white text-base font-mono mb-3 shadow-[0_0_15px_rgba(168,85,247,0.25)]">
+                              <div className="p-3 rounded-xl bg-black border border-purple-500/40 inline-block text-white text-base font-mono mb-3 shadow-[0_0_15px_rgba(168,85,247,0.25)]">
                                 <MathRenderer content={"\\det(A - \\lambda I) = 0"} block />
                               </div>
                               <p className="text-xs text-neutral-300 max-w-md mx-auto">
@@ -460,7 +460,7 @@ export const LandingPage: React.FC = () => {
                           )}
                         </div>
 
-                        <div className="text-center text-[10px] text-cyan-200/60 pt-2 border-t border-indigo-500/20">
+                        <div className="text-center text-[10px] text-cyan-200/60 pt-2 border-t border-white/10">
                           {demoFlashcardFlipped ? 'Card flipped! Try rating your recall below' : '👈 Click card to flip'}
                         </div>
                       </div>
@@ -501,7 +501,7 @@ export const LandingPage: React.FC = () => {
 
                   {/* TAB 2: Vision OCR Demo (Cyan Edge Highlighter) */}
                   {demoMode === 'ocr' && (
-                    <div className="p-6 rounded-2xl bg-[#0d1322] border-2 border-cyan-400/60 shadow-[0_0_30px_rgba(6,182,212,0.25)] space-y-4">
+                    <div className="p-6 rounded-2xl bg-black border-2 border-cyan-400/60 shadow-[0_0_30px_rgba(6,182,212,0.25)] space-y-4">
                       <div className="flex items-center justify-between">
                         <span className="px-3 py-1 rounded-full text-[11px] font-semibold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
                           Multimodal Vision • LaTeX Formula Extraction
@@ -509,20 +509,20 @@ export const LandingPage: React.FC = () => {
                         <span className="text-[11px] font-mono text-cyan-400">Confidence: 99.4%</span>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="p-4 rounded-xl bg-[#080d17] border border-cyan-500/25 space-y-2">
+                        <div className="p-4 rounded-xl bg-[#060609] border border-cyan-500/25 space-y-2">
                           <span className="text-[10px] font-mono uppercase text-cyan-400">Sample Handwritten Input:</span>
                           <p className="text-xs font-mono text-neutral-300">
                             "Cayley-Hamilton Theorem: Every square matrix A satisfies its own characteristic equation p(A) = 0."
                           </p>
                         </div>
-                        <div className="p-4 rounded-xl bg-[#080d17] border border-cyan-500/25 space-y-2">
+                        <div className="p-4 rounded-xl bg-[#060609] border border-cyan-500/25 space-y-2">
                           <span className="text-[10px] font-mono uppercase text-cyan-400">Extracted KaTeX Formulation:</span>
                           <div className="text-center py-1 text-white">
                             <MathRenderer content={"p(\\lambda) = \\det(\\lambda I - A) = 0 \\implies p(A) = 0"} block />
                           </div>
                         </div>
                       </div>
-                      <p className="text-xs text-cyan-200/80">
+                      <p className="text-xs text-neutral-300">
                         Gemini 2.5 Pro Multimodal Vision accurately parses handwritten math symbols, superscripts, subscripts, and Greek notations.
                       </p>
                     </div>
@@ -530,12 +530,12 @@ export const LandingPage: React.FC = () => {
 
                   {/* TAB 3: Bilingual Telugu & English Demo (Purple Edge Highlighter) */}
                   {demoMode === 'bilingual' && (
-                    <div className="p-6 rounded-2xl bg-[#0d1322] border-2 border-purple-400/60 shadow-[0_0_30px_rgba(168,85,247,0.25)] space-y-4">
+                    <div className="p-6 rounded-2xl bg-black border-2 border-purple-400/60 shadow-[0_0_30px_rgba(168,85,247,0.25)] space-y-4">
                       <div className="flex items-center justify-between">
                         <span className="px-3 py-1 rounded-full text-[11px] font-semibold bg-purple-500/15 text-purple-300 border border-purple-500/30">
                           Bilingual Conceptual Tutor
                         </span>
-                        <div className="flex items-center gap-1.5 bg-[#090d16] p-1 rounded-xl border border-purple-500/30">
+                        <div className="flex items-center gap-1.5 bg-black p-1 rounded-xl border border-purple-500/30">
                           <button
                             type="button"
                             onClick={() => setDemoTeluguActive(false)}
@@ -557,7 +557,7 @@ export const LandingPage: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="p-4 rounded-xl bg-[#080d17] border border-purple-500/25 space-y-2">
+                      <div className="p-4 rounded-xl bg-[#060609] border border-purple-500/25 space-y-2">
                         {!demoTeluguActive ? (
                           <div>
                             <h4 className="text-xs font-bold text-white mb-1">Eigenvalue Concept (English):</h4>
@@ -579,7 +579,7 @@ export const LandingPage: React.FC = () => {
 
                   {/* TAB 4: Quiz Arena Demo (Amber Edge Highlighter) */}
                   {demoMode === 'quiz' && (
-                    <div className="p-6 rounded-2xl bg-[#0d1322] border-2 border-amber-400/60 shadow-[0_0_30px_rgba(245,158,11,0.25)] space-y-4">
+                    <div className="p-6 rounded-2xl bg-black border-2 border-amber-400/60 shadow-[0_0_30px_rgba(245,158,11,0.25)] space-y-4">
                       <div className="flex items-center justify-between">
                         <span className="px-3 py-1 rounded-full text-[11px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30">
                           Interactive MCQ Practice Arena
@@ -659,7 +659,7 @@ export const LandingPage: React.FC = () => {
                 return (
                   <div
                     key={feat.title}
-                    className={`p-6 rounded-2xl bg-[#0f172a] transition-all space-y-3 group ${feat.edgeClass}`}
+                    className={`p-6 rounded-2xl bg-[#060609] transition-all space-y-3 group ${feat.edgeClass}`}
                   >
                     <div className="flex items-center justify-between">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105 ${feat.iconBox}`}>
@@ -707,7 +707,7 @@ export const LandingPage: React.FC = () => {
                   className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
                     activeWorkflowStep === idx
                       ? 'bg-white/[0.08] border-indigo-400/50 text-white shadow-lg'
-                      : 'bg-[#0c0c11] border-white/[0.06] text-neutral-400 hover:text-white hover:border-white/20'
+                      : 'bg-black border-white/[0.06] text-neutral-400 hover:text-white hover:border-white/20'
                   }`}
                 >
                   <span className="font-mono text-xs text-indigo-400 block mb-1">{step.step}</span>
@@ -717,7 +717,7 @@ export const LandingPage: React.FC = () => {
             </div>
 
             {/* Active Step Showcase Card */}
-            <div className="rounded-2xl bg-[#0c0c11] border border-white/[0.08] p-6 sm:p-8 space-y-4">
+            <div className="rounded-2xl bg-[#060609] border border-white/[0.08] p-6 sm:p-8 space-y-4 shadow-[0_0_20px_rgba(0,0,0,0.5)]">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/[0.06] pb-4">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
@@ -784,7 +784,7 @@ export const LandingPage: React.FC = () => {
               ].map((subj) => (
                 <div
                   key={subj.name}
-                  className={`p-4 rounded-xl bg-[#0f172a] border transition-all text-center space-y-1 shadow-md hover:shadow-lg ${subj.border}`}
+                  className={`p-4 rounded-xl bg-[#060609] border transition-all text-center space-y-1 shadow-md hover:shadow-lg ${subj.border}`}
                 >
                   <p className="text-xs font-bold text-white">{subj.name}</p>
                   <p className="text-[10px] text-cyan-300/70 font-mono">{subj.tag}</p>
@@ -815,7 +815,7 @@ export const LandingPage: React.FC = () => {
                 return (
                   <div
                     key={idx}
-                    className="rounded-xl bg-[#0c0c11] border border-white/[0.08] overflow-hidden transition-all"
+                    className="rounded-xl bg-[#060609] border border-white/[0.08] overflow-hidden transition-all shadow-[0_0_15px_rgba(0,0,0,0.5)]"
                   >
                     <button
                       type="button"
@@ -875,7 +875,7 @@ export const LandingPage: React.FC = () => {
       </main>
 
       {/* ---------------- COMPREHENSIVE FOOTER ---------------- */}
-      <footer className="relative bg-[#050507] border-t border-white/[0.08] pt-14 pb-10 text-neutral-400 text-xs">
+      <footer className="relative bg-black border-t border-white/10 pt-14 pb-10 text-neutral-400 text-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 pb-10 border-b border-white/[0.06]">
             <div className="space-y-3">

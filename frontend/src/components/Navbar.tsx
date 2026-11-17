@@ -1,11 +1,10 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { BookOpen, Sparkles, Sun, Moon, User, ArrowRight, Scan } from 'lucide-react';
-import { useTheme } from '../contexts/ThemeContext';
+import { BookOpen, Sparkles, User, ArrowRight, Scan } from 'lucide-react';
+import { ThemeSelector } from './ThemeSelector';
 import { useAuth } from '../contexts/AuthContext';
 
 export const Navbar: React.FC = () => {
-  const { theme, toggleTheme } = useTheme();
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -47,14 +46,8 @@ export const Navbar: React.FC = () => {
 
         {/* Right Action Cluster */}
         <div className="flex items-center gap-3">
-          {/* Theme Toggle */}
-          <button
-            onClick={toggleTheme}
-            className="p-2 rounded-xl bg-surface border border-border text-foreground-muted hover:text-foreground hover:bg-surface-hover transition-colors"
-            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-          >
-            {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-300" /> : <Moon className="w-4 h-4 text-indigo-600" />}
-          </button>
+          {/* Theme Selector */}
+          <ThemeSelector compact={true} />
 
           {/* Quick Scanner Action */}
           <Link
