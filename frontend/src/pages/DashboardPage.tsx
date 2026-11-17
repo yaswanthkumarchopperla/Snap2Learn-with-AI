@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Scan,
@@ -56,6 +56,50 @@ export const DashboardPage: React.FC = () => {
     if (!val) return '';
     return val.length > maxLen ? `${val.substring(0, maxLen)}…` : val;
   };
+
+  // Accurately compute solved trainee problems without arbitrary multipliers
+  const traineeStats = useMemo(() => {
+    // 1. If backend explicit counts are available
+    if (
+      analytics?.total_problems_solved !== undefined &&
+      analytics?.total_problems_attempted !== undefined
+    ) {
+      const solved = Number(analytics.total_problems_solved) || 0;
+      const total = Number(analytics.total_problems_attempted) || 0;
+      return {
+        solved,
+        total,
+        ratio: total > 0 ? `${solved}/${total}` : '0/0',
+        pct: total > 0 ? Math.round((solved / total) * 100) : 0,
+      };
+    }
+
+    // 2. Sum directly from recent_activity attempts
+    if (analytics?.recent_activity && analytics.recent_activity.length > 0) {
+      const solved = analytics.recent_activity.reduce(
+        (sum, a) => sum + (Number(a.correct_count) || 0),
+        0
+      );
+      const total = analytics.recent_activity.reduce(
+        (sum, a) => sum + (Number(a.total_questions) || 0),
+        0
+      );
+      return {
+        solved,
+        total,
+        ratio: total > 0 ? `${solved}/${total}` : '0/0',
+        pct: total > 0 ? Math.round((solved / total) * 100) : 0,
+      };
+    }
+
+    // 3. Fallback when 0 quizzes or starting fresh: strictly 0/0 and 0%
+    return {
+      solved: 0,
+      total: 0,
+      ratio: '0/0',
+      pct: 0,
+    };
+  }, [analytics]);
 
   return (
     <SidebarLayout>
@@ -126,7 +170,7 @@ export const DashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Maya Purple: Quizzes Completed / Trainee Problems */}
+          {/* Maya Purple: Trainee Problems Solved (Accurate Real Count) */}
           <div className="p-5 rounded-2xl bg-[#141a27] border border-[#1e2638] shadow-[0_4px_20px_rgba(0,0,0,0.35)] hover:border-[#8b5cf6]/50 transition-all min-w-0 overflow-hidden flex flex-col justify-between group">
             <div className="flex items-center justify-between text-[#94a3b8] mb-2 gap-2">
               <span className="text-xs font-semibold text-[#a855f7]">Trainee Problems Solved</span>
@@ -136,12 +180,17 @@ export const DashboardPage: React.FC = () => {
             </div>
             <div>
               <p className="text-3xl font-extrabold text-white truncate">
-                {loading ? '...' : analytics?.quizzes_completed ? `${analytics.quizzes_completed * 20}/112` : '84/112'}
+                {loading ? '...' : traineeStats.ratio}
               </p>
-              <span className="text-[11px] text-[#94a3b8] mt-1 block truncate">Deterministic evaluations</span>
+              <span className="text-[11px] text-[#94a3b8] mt-1 block truncate">
+                {traineeStats.total > 0 ? `${traineeStats.pct}% solved accuracy` : '0 problems solved'}
+              </span>
             </div>
             <div className="mt-3 h-1 w-full bg-[#0e131f] rounded-full overflow-hidden">
-              <div className="h-full bg-[#8b5cf6] w-3/4 rounded-full" />
+              <div
+                className="h-full bg-[#8b5cf6] rounded-full transition-all duration-500"
+                style={{ width: `${traineeStats.pct}%` }}
+              />
             </div>
           </div>
 
@@ -332,52 +381,63 @@ export const DashboardPage: React.FC = () => {
                 </button>
               </div>
             ) : (
-              notes.map((note, idx) => (
-                <div
-                  key={note.id}
-                  className="p-4 sm:p-5 rounded-2xl bg-[#0e131f] border border-[#1e2638] border-l-4 border-l-[#ff6b35] shadow-[0_4px_15px_rgba(0,0,0,0.3)] hover:border-l-[#ff7a45] hover:border-[#ff6b35]/40 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 min-w-0"
-                >
-                  <div className="flex items-start sm:items-center gap-3.5 min-w-0 flex-1">
-                    {/* Module Index Badge (1, 2, 3...) */}
-                    <div className="w-9 h-9 rounded-xl bg-[#141a27] border border-[#1e2638] flex items-center justify-center font-bold text-xs text-[#ff6b35] shrink-0 shadow-sm">
-                      {idx + 1}
-                    </div>
+              notes.map((note, idx) => {
+                // Compute real attempts for this specific module/topic
+                const noteAttempts = (analytics?.recent_activity || []).filter(
+                  (a) =>
+                    (a.topic && note.topic && a.topic.toLowerCase() === note.topic.toLowerCase()) ||
+                    (a.subject && note.subject && a.subject.toLowerCase() === note.subject.toLowerCase())
+                );
+                const moduleSolved = noteAttempts.reduce((sum, a) => sum + (Number(a.correct_count) || 0), 0);
+                const moduleTotal = noteAttempts.reduce((sum, a) => sum + (Number(a.total_questions) || 0), 0);
+                const modulePct = moduleTotal > 0 ? Math.round((moduleSolved / moduleTotal) * 100) : 0;
 
-                    <div className="min-w-0 flex-1 space-y-1.5">
-                      <h4 className="text-sm sm:text-base font-bold text-white truncate">{note.title}</h4>
-                      
-                      {/* Aditya Maya Status Chips Row */}
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-[#38bdf8]/10 border border-[#38bdf8]/25 text-[#38bdf8] flex items-center gap-1">
-                          <BookOpen className="w-3 h-3" />
-                          <span>Articles 0/0</span>
-                        </span>
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-cyan-500/10 border border-cyan-500/25 text-cyan-300 flex items-center gap-1">
-                          <span>Notes 1/1</span>
-                        </span>
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-[#8b5cf6]/10 border border-[#8b5cf6]/25 text-[#a855f7] flex items-center gap-1">
-                          <Award className="w-3 h-3" />
-                          <span>Problems 20/20</span>
-                        </span>
-                        <span className="text-[10px] text-[#94a3b8] font-mono truncate">
-                          {note.subject} • {note.topic}
-                        </span>
+                return (
+                  <div
+                    key={note.id}
+                    className="p-4 sm:p-5 rounded-2xl bg-[#0e131f] border border-[#1e2638] border-l-4 border-l-[#ff6b35] shadow-[0_4px_15px_rgba(0,0,0,0.3)] hover:border-l-[#ff7a45] hover:border-[#ff6b35]/40 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 min-w-0"
+                  >
+                    <div className="flex items-start sm:items-center gap-3.5 min-w-0 flex-1">
+                      {/* Module Index Badge (1, 2, 3...) */}
+                      <div className="w-9 h-9 rounded-xl bg-[#141a27] border border-[#1e2638] flex items-center justify-center font-bold text-xs text-[#ff6b35] shrink-0 shadow-sm">
+                        {idx + 1}
                       </div>
 
-                      {/* Aditya Maya Progress Bar */}
-                      <div className="flex items-center gap-3 pt-1">
-                        <div className="h-1.5 flex-1 bg-[#141a27] rounded-full overflow-hidden border border-white/5">
-                          <div
-                            className="h-full bg-gradient-to-r from-[#ff6b35] to-[#f95721] rounded-full"
-                            style={{ width: `${Math.min(100, 25 + (idx * 25))}%` }}
-                          />
+                      <div className="min-w-0 flex-1 space-y-1.5">
+                        <h4 className="text-sm sm:text-base font-bold text-white truncate">{note.title}</h4>
+                        
+                        {/* Aditya Maya Status Chips Row (Zero for each until solved) */}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-[#38bdf8]/10 border border-[#38bdf8]/25 text-[#38bdf8] flex items-center gap-1">
+                            <BookOpen className="w-3 h-3" />
+                            <span>Articles 0/0</span>
+                          </span>
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-cyan-500/10 border border-cyan-500/25 text-cyan-300 flex items-center gap-1">
+                            <span>Notes 0/0</span>
+                          </span>
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-[#8b5cf6]/10 border border-[#8b5cf6]/25 text-[#a855f7] flex items-center gap-1">
+                            <Award className="w-3 h-3" />
+                            <span>Problems {moduleSolved}/{moduleTotal}</span>
+                          </span>
+                          <span className="text-[10px] text-[#94a3b8] font-mono truncate">
+                            {note.subject} • {note.topic}
+                          </span>
                         </div>
-                        <span className="text-[10px] font-bold text-[#ff6b35] font-mono shrink-0">
-                          {Math.min(100, 25 + (idx * 25))}%
-                        </span>
+
+                        {/* Aditya Maya Progress Bar */}
+                        <div className="flex items-center gap-3 pt-1">
+                          <div className="h-1.5 flex-1 bg-[#141a27] rounded-full overflow-hidden border border-white/5">
+                            <div
+                              className="h-full bg-gradient-to-r from-[#ff6b35] to-[#f95721] rounded-full transition-all duration-300"
+                              style={{ width: `${modulePct}%` }}
+                            />
+                          </div>
+                          <span className="text-[10px] font-bold text-[#ff6b35] font-mono shrink-0">
+                            {modulePct}%
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
                   {/* Actions: Resume (Aditya Maya Pill Button) */}
                   <div className="flex items-center gap-2.5 w-full md:w-auto shrink-0 justify-end">
@@ -397,7 +457,8 @@ export const DashboardPage: React.FC = () => {
                     </button>
                   </div>
                 </div>
-              ))
+              );
+            })
             )}
           </div>
         </div>

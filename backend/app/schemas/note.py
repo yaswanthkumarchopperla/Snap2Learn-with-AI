@@ -94,6 +94,8 @@ class ProgressAnalytics(BaseModel):
     average_accuracy: float
     study_streak_days: int
     flashcards_reviewed: int = 0
+    total_problems_solved: int = 0
+    total_problems_attempted: int = 0
     subject_performance: List[Dict[str, Any]]
     weak_topics: List[str]
     recent_activity: List[Dict[str, Any]]

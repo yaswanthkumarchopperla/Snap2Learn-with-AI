@@ -622,12 +622,17 @@ class InMemoryStore:
         elif total_notes > 0:
             recommended = f"Practice quiz on {user_notes[0].topic}"
 
+        total_correct_problems = sum(int(a.get("correct_count", 0)) for a in user_attempts)
+        total_attempted_problems = sum(int(a.get("total_questions", 0)) for a in user_attempts)
+
         return ProgressAnalytics(
             total_notes=total_notes,
             quizzes_completed=total_quizzes,
             average_accuracy=round(avg_acc, 1),
             study_streak_days=3 if total_quizzes > 0 else 0,
             flashcards_reviewed=total_fc_reviewed,
+            total_problems_solved=total_correct_problems,
+            total_problems_attempted=total_attempted_problems,
             subject_performance=subject_performance,
             weak_topics=list(weak_topics_set)[:6],
             recent_activity=recent,

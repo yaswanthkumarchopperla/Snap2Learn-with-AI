@@ -187,6 +187,8 @@ export interface ProgressAnalytics {
   average_accuracy: number;
   study_streak_days: number;
   flashcards_reviewed?: number;
+  total_problems_solved?: number;
+  total_problems_attempted?: number;
   subject_performance: SubjectPerformance[];
   weak_topics: string[];
   recent_activity: any[];

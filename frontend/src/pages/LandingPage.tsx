@@ -361,11 +361,10 @@ export const LandingPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setDemoMode('flashcard')}
-                    className={`p-3 rounded-xl border-2 text-center transition-all cursor-pointer ${
-                      demoMode === 'flashcard'
+                    className={`p-3 rounded-xl border-2 text-center transition-all cursor-pointer ${demoMode === 'flashcard'
                         ? 'border-emerald-400 bg-emerald-500/20 text-white shadow-[0_0_20px_rgba(16,185,129,0.35)]'
                         : 'border-indigo-500/20 bg-surface text-neutral-400 hover:text-white hover:border-emerald-500/40'
-                    }`}
+                      }`}
                   >
                     <Layers className="w-4 h-4 mx-auto mb-1 text-emerald-400" />
                     <span className="text-xs font-bold block">Smart Flashcard</span>
@@ -375,11 +374,10 @@ export const LandingPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setDemoMode('ocr')}
-                    className={`p-3 rounded-xl border-2 text-center transition-all cursor-pointer ${
-                      demoMode === 'ocr'
+                    className={`p-3 rounded-xl border-2 text-center transition-all cursor-pointer ${demoMode === 'ocr'
                         ? 'border-cyan-400 bg-cyan-500/20 text-white shadow-[0_0_20px_rgba(6,182,212,0.35)]'
                         : 'border-indigo-500/20 bg-surface text-neutral-400 hover:text-white hover:border-cyan-500/40'
-                    }`}
+                      }`}
                   >
                     <Camera className="w-4 h-4 mx-auto mb-1 text-cyan-400" />
                     <span className="text-xs font-bold block">Vision OCR</span>
@@ -389,11 +387,10 @@ export const LandingPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setDemoMode('bilingual')}
-                    className={`p-3 rounded-xl border-2 text-center transition-all cursor-pointer ${
-                      demoMode === 'bilingual'
+                    className={`p-3 rounded-xl border-2 text-center transition-all cursor-pointer ${demoMode === 'bilingual'
                         ? 'border-purple-400 bg-purple-500/20 text-white shadow-[0_0_20px_rgba(168,85,247,0.35)]'
                         : 'border-indigo-500/20 bg-surface text-neutral-400 hover:text-white hover:border-purple-500/40'
-                    }`}
+                      }`}
                   >
                     <Globe2 className="w-4 h-4 mx-auto mb-1 text-purple-400" />
                     <span className="text-xs font-bold block">Telugu & English</span>
@@ -403,11 +400,10 @@ export const LandingPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setDemoMode('quiz')}
-                    className={`p-3 rounded-xl border-2 text-center transition-all cursor-pointer ${
-                      demoMode === 'quiz'
+                    className={`p-3 rounded-xl border-2 text-center transition-all cursor-pointer ${demoMode === 'quiz'
                         ? 'border-amber-400 bg-amber-500/20 text-white shadow-[0_0_20px_rgba(245,158,11,0.35)]'
                         : 'border-indigo-500/20 bg-surface text-neutral-400 hover:text-white hover:border-amber-500/40'
-                    }`}
+                      }`}
                   >
                     <Award className="w-4 h-4 mx-auto mb-1 text-amber-400" />
                     <span className="text-xs font-bold block">Quiz Arena</span>
@@ -422,11 +418,10 @@ export const LandingPage: React.FC = () => {
                     <div className="space-y-3">
                       <div
                         onClick={() => setDemoFlashcardFlipped(!demoFlashcardFlipped)}
-                        className={`cursor-pointer rounded-2xl p-6 sm:p-8 border-2 transition-all duration-300 shadow-xl ${
-                          !demoFlashcardFlipped
+                        className={`cursor-pointer rounded-2xl p-6 sm:p-8 border-2 transition-all duration-300 shadow-xl ${!demoFlashcardFlipped
                             ? 'border-emerald-400/60 bg-black shadow-[0_0_30px_rgba(16,185,129,0.25)] hover:border-emerald-300'
                             : 'border-purple-400/60 bg-black shadow-[0_0_30px_rgba(168,85,247,0.25)] hover:border-purple-300'
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center justify-between mb-4">
                           <span className="px-3 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
@@ -539,18 +534,16 @@ export const LandingPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setDemoTeluguActive(false)}
-                            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                              !demoTeluguActive ? 'bg-purple-500 text-white shadow-xs' : 'text-neutral-400 hover:text-white'
-                            }`}
+                            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${!demoTeluguActive ? 'bg-purple-500 text-white shadow-xs' : 'text-neutral-400 hover:text-white'
+                              }`}
                           >
                             English
                           </button>
                           <button
                             type="button"
                             onClick={() => setDemoTeluguActive(true)}
-                            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                              demoTeluguActive ? 'bg-purple-500 text-white shadow-xs' : 'text-neutral-400 hover:text-white'
-                            }`}
+                            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${demoTeluguActive ? 'bg-purple-500 text-white shadow-xs' : 'text-neutral-400 hover:text-white'
+                              }`}
                           >
                             తెలుగు (Telugu)
                           </button>
@@ -606,13 +599,12 @@ export const LandingPage: React.FC = () => {
                               key={choice.id}
                               type="button"
                               onClick={() => setDemoQuizSelected(choice.id)}
-                              className={`w-full p-3 rounded-xl border text-left transition-all text-xs font-semibold cursor-pointer flex items-center justify-between ${
-                                isSelected
+                              className={`w-full p-3 rounded-xl border text-left transition-all text-xs font-semibold cursor-pointer flex items-center justify-between ${isSelected
                                   ? choice.isCorrect
                                     ? 'bg-emerald-500/20 border-2 border-emerald-400 text-emerald-200 shadow-[0_0_15px_rgba(16,185,129,0.3)]'
                                     : 'bg-rose-500/20 border-2 border-rose-400 text-rose-200 shadow-[0_0_15px_rgba(244,63,94,0.3)]'
                                   : 'bg-surface border-indigo-500/20 text-neutral-300 hover:border-amber-400/50 hover:text-white'
-                              }`}
+                                }`}
                             >
                               <span>{String.fromCharCode(65 + choice.id)}. {choice.text}</span>
                               {isSelected && (
@@ -704,11 +696,10 @@ export const LandingPage: React.FC = () => {
                   key={step.step}
                   type="button"
                   onClick={() => setActiveWorkflowStep(idx)}
-                  className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
-                    activeWorkflowStep === idx
+                  className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${activeWorkflowStep === idx
                       ? 'bg-white/[0.08] border-indigo-400/50 text-white shadow-lg'
                       : 'bg-black border-white/[0.06] text-neutral-400 hover:text-white hover:border-white/20'
-                  }`}
+                    }`}
                 >
                   <span className="font-mono text-xs text-indigo-400 block mb-1">{step.step}</span>
                   <p className="text-xs font-bold truncate">{step.title}</p>
@@ -826,9 +817,8 @@ export const LandingPage: React.FC = () => {
                         {faq.q}
                       </span>
                       <ChevronDown
-                        className={`w-4 h-4 text-neutral-400 shrink-0 transition-transform duration-200 ${
-                          isOpen ? 'rotate-180 text-white' : ''
-                        }`}
+                        className={`w-4 h-4 text-neutral-400 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180 text-white' : ''
+                          }`}
                       />
                     </button>
                     {isOpen && (
