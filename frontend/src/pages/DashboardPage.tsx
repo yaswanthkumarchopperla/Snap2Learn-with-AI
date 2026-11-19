@@ -104,10 +104,10 @@ export const DashboardPage: React.FC = () => {
   return (
     <SidebarLayout>
       <div className="p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6 pb-20 lg:pb-8 min-w-0 bg-[#0e131f]">
-        {/* Aditya Maya Student Profile & Welcome Banner */}
+        {/* Student Profile & Welcome Banner */}
         <div className="p-5 sm:p-6 rounded-2xl bg-[#141a27] border border-[#1e2638] shadow-[0_4px_20px_rgba(0,0,0,0.4)] flex flex-col md:flex-row md:items-center justify-between gap-5">
           <div className="flex items-center gap-4 min-w-0">
-            {/* Student Avatar with Aditya Maya Gradient Ring */}
+            {/* Student Avatar with Dark Mode Gradient Ring */}
             <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-full bg-gradient-to-tr from-[#ff6b35] via-[#38bdf8] to-[#8b5cf6] p-[2.5px] shrink-0 shadow-[0_0_20px_rgba(255,107,53,0.35)]">
               <div className="w-full h-full rounded-full bg-[#0e131f] flex items-center justify-center text-white font-extrabold text-xl sm:text-2xl">
                 {user?.displayName ? user.displayName.charAt(0).toUpperCase() : 'Y'}
@@ -149,9 +149,9 @@ export const DashboardPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Aditya Maya Stats Row (Trainer, Trainee, LeetCode, Streak) */}
+        {/* Dark Mode Stats Row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Maya Sky Blue: Notes Scanned / Trainer Problems */}
+          {/* Notes Scanned */}
           <div className="p-5 rounded-2xl bg-[#141a27] border border-[#1e2638] shadow-[0_4px_20px_rgba(0,0,0,0.35)] hover:border-[#38bdf8]/50 transition-all min-w-0 overflow-hidden flex flex-col justify-between group">
             <div className="flex items-center justify-between text-[#94a3b8] mb-2 gap-2">
               <span className="text-xs font-semibold text-[#38bdf8]">Notes Scanned</span>
@@ -170,7 +170,7 @@ export const DashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Maya Purple: Trainee Problems Solved (Accurate Real Count) */}
+          {/* Trainee Problems Solved (Accurate Real Count) */}
           <div className="p-5 rounded-2xl bg-[#141a27] border border-[#1e2638] shadow-[0_4px_20px_rgba(0,0,0,0.35)] hover:border-[#8b5cf6]/50 transition-all min-w-0 overflow-hidden flex flex-col justify-between group">
             <div className="flex items-center justify-between text-[#94a3b8] mb-2 gap-2">
               <span className="text-xs font-semibold text-[#a855f7]">Trainee Problems Solved</span>
@@ -194,7 +194,7 @@ export const DashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Maya Orange: Average Accuracy */}
+          {/* Average Accuracy */}
           <div className="p-5 rounded-2xl bg-[#141a27] border border-[#1e2638] shadow-[0_4px_20px_rgba(0,0,0,0.35)] hover:border-[#ff6b35]/50 transition-all min-w-0 overflow-hidden flex flex-col justify-between group">
             <div className="flex items-center justify-between text-[#94a3b8] mb-2 gap-2">
               <span className="text-xs font-semibold text-[#ff6b35]">Average Accuracy</span>
@@ -213,7 +213,7 @@ export const DashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Maya Amber: Study Streak / Batch Leaderboard */}
+          {/* Study Streak / Batch Leaderboard */}
           <div className="p-5 rounded-2xl bg-[#141a27] border border-[#1e2638] shadow-[0_4px_20px_rgba(0,0,0,0.35)] hover:border-[#f59e0b]/50 transition-all min-w-0 overflow-hidden flex flex-col justify-between group">
             <div className="flex items-center justify-between text-[#94a3b8] mb-2 gap-2">
               <span className="text-xs font-semibold text-[#f59e0b]">Batch Leaderboard</span>
@@ -342,7 +342,7 @@ export const DashboardPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Course Modules & Learning Sessions (Aditya Maya Module Card Styling) */}
+        {/* Course Modules & Learning Sessions (Dark Mode Card Styling) */}
         <div className="p-5 sm:p-6 rounded-2xl bg-[#141a27] border border-[#1e2638] shadow-[0_4px_20px_rgba(0,0,0,0.4)] min-w-0">
           <div className="flex items-center justify-between mb-5">
             <div>
@@ -406,7 +406,7 @@ export const DashboardPage: React.FC = () => {
                       <div className="min-w-0 flex-1 space-y-1.5">
                         <h4 className="text-sm sm:text-base font-bold text-white truncate">{note.title}</h4>
                         
-                        {/* Aditya Maya Status Chips Row (Zero for each until solved) */}
+                        {/* Status Chips Row (Zero for each until solved) */}
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-[#38bdf8]/10 border border-[#38bdf8]/25 text-[#38bdf8] flex items-center gap-1">
                             <BookOpen className="w-3 h-3" />
@@ -424,7 +424,7 @@ export const DashboardPage: React.FC = () => {
                           </span>
                         </div>
 
-                        {/* Aditya Maya Progress Bar */}
+                        {/* Progress Bar */}
                         <div className="flex items-center gap-3 pt-1">
                           <div className="h-1.5 flex-1 bg-[#141a27] rounded-full overflow-hidden border border-white/5">
                             <div
@@ -439,7 +439,7 @@ export const DashboardPage: React.FC = () => {
                       </div>
                     </div>
 
-                  {/* Actions: Resume (Aditya Maya Pill Button) */}
+                  {/* Actions: Resume (Sunset Orange Pill Button) */}
                   <div className="flex items-center gap-2.5 w-full md:w-auto shrink-0 justify-end">
                     <button
                       type="button"

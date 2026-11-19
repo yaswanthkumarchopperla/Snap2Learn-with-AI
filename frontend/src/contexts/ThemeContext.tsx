@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
 export type ThemeId =
+  | 'dark'
   | 'maya-aditya'
   | 'neon-prism'
   | 'cyber-cyan'
@@ -21,13 +22,13 @@ export interface ThemeMeta {
 
 export const UNIQUE_THEMES: ThemeMeta[] = [
   {
-    id: 'maya-aditya',
-    name: 'Aditya Maya Dark',
-    label: 'Aditya Maya Midnight Orange',
+    id: 'dark',
+    name: 'Dark Mode',
+    label: 'Dark Mode',
     accentColor: '#FF6B35',
     gradient: 'from-[#FF6B35] via-[#F95721] to-[#FFA035]',
-    badge: 'Aditya Maya',
-    description: 'Aditya University Maya portal dark theme: gunmetal midnight slate, vibrant orange left-edge accents & orange action pills'
+    badge: 'Dark Mode',
+    description: 'Midnight slate canvas with vibrant sunset orange accents & glowing left-edge borders'
   },
   {
     id: 'neon-prism',
@@ -93,7 +94,7 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  currentTheme: 'maya-aditya',
+  currentTheme: 'dark',
   setTheme: () => {},
   themes: UNIQUE_THEMES,
   themeMeta: UNIQUE_THEMES[0],
@@ -102,8 +103,9 @@ const ThemeContext = createContext<ThemeContextType>({
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentTheme, setCurrentTheme] = useState<ThemeId>(() => {
     const saved = localStorage.getItem('snap2learn_theme_id');
+    if (saved === 'maya-aditya') return 'dark';
     const valid = UNIQUE_THEMES.find(t => t.id === saved);
-    return valid ? (saved as ThemeId) : 'maya-aditya';
+    return valid ? (saved as ThemeId) : 'dark';
   });
 
   useEffect(() => {

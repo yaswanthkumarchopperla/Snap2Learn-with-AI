@@ -188,7 +188,7 @@ export const LandingPage: React.FC = () => {
                 Snap2Learn<span className="text-[#ff6b35] font-extrabold ml-1">AI</span>
               </span>
               <span className="px-2.5 py-0.5 rounded-full bg-[#ff6b35]/15 border border-[#ff6b35]/30 text-[10px] font-mono text-[#ff6b35] hidden sm:inline shadow-[0_0_8px_rgba(255,107,53,0.2)]">
-                Aditya Maya v2.5
+                Dark Mode v2.5
               </span>
             </div>
           </div>

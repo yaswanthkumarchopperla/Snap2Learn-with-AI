@@ -128,7 +128,7 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
                 <span className="font-bold text-sm tracking-tight text-white">
                   Snap2Learn<span className="text-[#ff6b35] ml-0.5">AI</span>
                 </span>
-                <p className="text-[9px] text-[#94a3b8] font-medium">Aditya Maya • CSE-AIML</p>
+                <p className="text-[9px] text-[#94a3b8] font-medium">Dark Mode • CSE-AIML</p>
               </div>
             </div>
             <button
@@ -151,7 +151,7 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
                 <span className="font-bold text-base tracking-tight text-white flex items-center">
                   Snap2Learn<span className="text-[#ff6b35] ml-1 font-extrabold">AI</span>
                 </span>
-                <p className="text-[10px] text-[#94a3b8] font-medium">Aditya Maya • CSE-AIML</p>
+                <p className="text-[10px] text-[#94a3b8] font-medium">Dark Mode • CSE-AIML</p>
               </div>
             </div>
             <ThemeSelector compact={true} />
@@ -210,7 +210,7 @@ export const SidebarLayout: React.FC<SidebarProps> = ({ children }) => {
 
         {/* Autosave Sync Status Badge */}
         <div className="px-4 py-2.5 border-t border-[#1e2638] bg-[#0e131f] flex items-center justify-between">
-          <span className="text-[10px] text-[#94a3b8] font-medium">Maya Cloud Sync</span>
+          <span className="text-[10px] text-[#94a3b8] font-medium">Cloud Sync</span>
           <AutosaveIndicator compact={true} />
         </div>
 

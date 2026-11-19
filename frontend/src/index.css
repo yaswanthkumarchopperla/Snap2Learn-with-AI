@@ -26,7 +26,7 @@
 
 @layer base {
   :root {
-    /* Aditya University Maya Midnight Slate & Sunset Orange Theme (Default) */
+    /* Dark Mode: Midnight Slate & Sunset Orange Theme (Default) */
     --background: #0e131f;
     --surface: #161d2d;
     --surface-elevated: #1b2337;
@@ -34,7 +34,7 @@
     --border: rgba(255, 255, 255, 0.08);
     --border-highlight: #ff6b35;
     
-    /* Vibrant Aditya Maya presentation accents */
+    /* Vibrant Dark Mode presentation accents */
     --primary: #ff6b35;
     --primary-hover: #f95721;
     --primary-glow: rgba(255, 107, 53, 0.45);
@@ -51,14 +51,15 @@
     --warning: #F59E0B;
     --error: #EF4444;
 
-    /* Ultra-crisp high contrast white matter & Maya slate text */
+    /* Ultra-crisp high contrast white matter & slate text */
     --foreground: #FFFFFF;
     --foreground-muted: #94a3b8;
     --foreground-subtle: #64748b;
   }
 
   /* ---------------- UNIQUE PRESENTATION THEMES ---------------- */
-  /* Theme 0: Aditya Maya Dark (Premier Midnight Orange) */
+  /* Theme 0: Dark Mode (Premier Midnight Slate & Sunset Orange) */
+  [data-theme="dark"],
   [data-theme="maya-aditya"] {
     --background: #0e131f;
     --surface: #161d2d;
@@ -155,10 +156,10 @@
 }
 
 /* ============================================================== */
-/* ADITYA MAYA PORTAL THEME UTILITIES                             */
+/* DARK MODE SIGNATURE THEME UTILITIES                            */
 /* ============================================================== */
 
-/* Signature Maya Module Card with Vibrant Orange Left Accent */
+/* Signature Dark Mode Module Card with Vibrant Orange Left Accent */
 .maya-module-card {
   position: relative;
   background-color: #141a27 !important;
@@ -175,7 +176,7 @@
   transform: translateY(-1px);
 }
 
-/* Signature Maya Primary Orange Pill Button */
+/* Signature Dark Mode Primary Orange Pill Button */
 .maya-btn-primary {
   background: linear-gradient(135deg, #ff6b35, #f95721) !important;
   color: #ffffff !important;
@@ -190,7 +191,7 @@
   transform: translateY(-1px);
 }
 
-/* Maya Status Metric Chips */
+/* Dark Mode Status Metric Chips */
 .maya-chip-blue {
   background-color: rgba(56, 189, 248, 0.12);
   border: 1px solid rgba(56, 189, 248, 0.25);
@@ -223,7 +224,7 @@
   overflow: hidden;
 }
 
-/* Sunset Orange Edge Highlighter (Aditya Maya signature) */
+/* Sunset Orange Edge Highlighter */
 .edge-highlight-orange {
   border-color: rgba(255, 107, 53, 0.60) !important;
   box-shadow: 0 0 25px -2px rgba(255, 107, 53, 0.35), inset 0 0 15px -2px rgba(255, 107, 53, 0.15);
